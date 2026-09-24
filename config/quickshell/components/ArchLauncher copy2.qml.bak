@@ -1,0 +1,45 @@
+import Quickshell
+import QtQuick
+
+Rectangle {
+    id: archLauncher
+
+    width: 50
+    height: 32
+
+    radius: 16
+
+    color: mouseArea.containsMouse
+        ? "#303030"
+        : "#000000"
+
+    Behavior on color {
+        ColorAnimation {
+            duration: 150
+        }
+    }
+
+    Image {
+        anchors.centerIn: parent
+
+        width: 20
+        height: 20
+
+        source: "file:///usr/share/pixmaps/archlinux-logo.svg"
+
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+    }
+
+    MouseArea {
+        id: mouseArea
+
+        anchors.fill: parent
+
+        hoverEnabled: true
+
+        onClicked: {
+            Quickshell.execDetached(["hyprlauncher"])
+        }
+    }
+}

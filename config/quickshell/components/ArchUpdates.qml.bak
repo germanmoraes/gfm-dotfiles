@@ -1,0 +1,160 @@
+import Quickshell
+import Quickshell.Io
+import QtQuick
+
+Item {
+    id: root
+
+    implicitWidth: capsule.width
+    implicitHeight: 36
+
+    property int updateCount: 0
+    property bool checking: false
+
+    readonly property string home:
+        Quickshell.env("HOME")
+
+    readonly property string refreshFile:
+        home + "/.cache/quickshell/arch-updates-refresh"
+
+    Rectangle {
+        id: capsule
+
+        width: contentRow.implicitWidth + 24
+        height: 36
+
+        radius: 18
+        color: "#242428"
+
+        Row {
+            id: contentRow
+
+            anchors.centerIn: parent
+            spacing: 8
+
+            Text {
+                id: archIcon
+
+                text: "\uf303"
+
+                font.family: "Symbols Nerd Font"
+                font.pixelSize: 18
+
+                color: updateCount > 0
+                    ? "#4da6ff"
+                    : "#8b8b92"
+
+                verticalAlignment: Text.AlignVCenter
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 180
+                    }
+                }
+            }
+
+            Text {
+                visible: updateCount > 0
+
+                text: updateCount.toString()
+
+                font.family: "Inter"
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+
+                color: "#d8d8dc"
+
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+
+            cursorShape: Qt.PointingHandCursor
+
+            onClicked: {
+                updateTerminal.command = [
+                    "kitty",
+                    "--title",
+                    "Manutenção do Sistema",
+                    root.home + "/.local/bin/system-update"
+                ]
+
+                updateTerminal.startDetached()
+            }
+        }
+    }
+
+    Process {
+        id: updateTerminal
+    }
+
+    Process {
+        id: updateCheck
+
+        command: [
+            "bash",
+            "-lc",
+            "pacman_count=$(checkupdates 2>/dev/null | wc -l); " +
+            "aur_count=$(yay -Qua 2>/dev/null | wc -l); " +
+            "flatpak_count=$(flatpak remote-ls --updates 2>/dev/null | wc -l); " +
+            "echo $((pacman_count + aur_count + flatpak_count))"
+        ]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var value = parseInt(text.trim())
+
+                if (isNaN(value))
+                    value = 0
+
+                root.updateCount = Math.max(0, value)
+                root.checking = false
+            }
+        }
+
+        onExited: function(exitCode, exitStatus) {
+            if (exitCode !== 0 && !root.checking) {
+                root.updateCount = 0
+            }
+        }
+    }
+
+    Timer {
+        id: periodicCheck
+
+        interval: 300000
+        repeat: true
+        running: true
+
+        onTriggered: {
+            root.refresh()
+        }
+    }
+
+    FileView {
+        id: refreshWatcher
+
+        path: root.refreshFile
+        watchChanges: true
+        printErrors: false
+
+        onFileChanged: {
+            refreshWatcher.reload()
+            root.refresh()
+        }
+    }
+
+    function refresh() {
+        if (updateCheck.running)
+            return
+
+        root.checking = true
+        updateCheck.start()
+    }
+
+    Component.onCompleted: {
+        root.refresh()
+    }
+}

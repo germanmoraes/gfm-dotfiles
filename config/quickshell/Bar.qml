@@ -1,0 +1,136 @@
+import Quickshell
+import Quickshell.Io
+import QtQuick
+import "components"
+
+PanelWindow {
+    id: bar
+
+    anchors {
+        top: true
+        left: true
+        right: true
+    }
+
+    implicitHeight: 48
+
+    color: "transparent"
+
+    // ============================================================
+    // SEÇÃO ESQUERDA
+    // ============================================================
+
+    Row {
+        id: leftSection
+
+        anchors {
+            left: parent.left
+            verticalCenter: parent.verticalCenter
+        }
+
+        spacing: 8
+
+        ArchLauncher {
+            barWindow: bar
+        }
+
+        Workspaces {}
+
+        ActiveApps {}
+
+        SystemTray {}
+    }
+
+    // ============================================================
+    // SEÇÃO CENTRAL
+    // ============================================================
+
+    Row {
+        id: centerSection
+
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            verticalCenter: parent.verticalCenter
+        }
+
+        spacing: 8
+
+        Weather {}
+
+        Clock {}
+    }
+
+    // ============================================================
+    // SEÇÃO DIREITA
+    // ============================================================
+
+    Row {
+        id: rightSection
+
+        anchors {
+            right: parent.right
+            verticalCenter: parent.verticalCenter
+        }
+
+        spacing: 8
+
+        SystemMonitor {
+            id: systemMonitor
+        }
+
+        ArchUpdates {
+            id: archUpdates
+        }
+
+        SystemControls {
+            id: systemConstrols
+
+            onSettingsRequested: {
+                settingsLoader.active = true
+
+                if (settingsLoader.item) {
+                    settingsLoader.item.visible = true
+                }
+            }
+        }
+    }
+
+    // ============================================================
+    // JANELA DE CONFIGURAÇÕES
+    // ============================================================
+
+    LazyLoader {
+        id: settingsLoader
+
+        active: false
+
+        SettingsWindow {
+            onClosed: {
+                settingsLoader.active = false
+            }
+        }
+    }
+
+    // ============================================================
+    // WALLPAPER MANAGER
+    // ============================================================
+
+    WallpaperManager {
+        id: wallpaperManager
+
+        barWindow: bar
+    }
+
+    // ============================================================
+    // IPC — WALLPAPER MANAGER
+    // ============================================================
+
+    IpcHandler {
+        target: "wallpaperManager"
+
+        function toggle(): void {
+            wallpaperManager.visible =
+                !wallpaperManager.visible
+        }
+    }
+}

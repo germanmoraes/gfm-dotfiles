@@ -1,0 +1,21 @@
+# Arquivos temporários
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Cache
+.cache/
+__pycache__/
+
+# Arquivos gerados localmente
+*.tmp
+
+# Estado local do Quickshell
+config/quickshell/last-wallpaper
+
+# Segredos / credenciais
+.env
+.env.*

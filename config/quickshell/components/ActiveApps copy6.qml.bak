@@ -1,0 +1,693 @@
+import Quickshell
+import Quickshell.Hyprland
+import Quickshell.Widgets
+import QtQuick
+
+Item {
+    id: activeApps
+
+    // ============================================================
+    // CONFIGURAÇÃO
+    // ============================================================
+
+    readonly property int itemSize: 32
+    readonly property int itemRadius: 16
+    readonly property int itemSpacing: 4
+    readonly property int iconSize: 18
+
+    readonly property int indicatorWidth: 14
+    readonly property int indicatorHeight: 2
+    readonly property int indicatorBottomMargin: 4
+
+    // ============================================================
+    // CORES
+    // ============================================================
+
+    readonly property color normalColor: "#000000"
+    readonly property color hoverColor: "#303030"
+
+    readonly property color indicatorColor: "#707070"
+
+    readonly property color popupColor: "#18181c"
+    readonly property color popupBorderColor: "#29252f"
+    readonly property color popupHoverColor: "#303030"
+
+    readonly property color popupTextColor: "#e6e6e6"
+    readonly property color popupSecondaryTextColor: "#8b8b92"
+
+    // ============================================================
+    // POPUP
+    // ============================================================
+
+    readonly property int popupWidth: 300
+    readonly property int popupItemHeight: 38
+    readonly property int popupRadius: 10
+    readonly property int popupPadding: 6
+
+    // ============================================================
+    // ESTADO
+    // ============================================================
+
+    property var selectedGroup: null
+    property Item selectedItem: null
+
+    // ============================================================
+    // IDENTIFICAÇÃO DA APLICAÇÃO
+    // ============================================================
+
+    function applicationId(toplevel) {
+
+        if (!toplevel)
+            return ""
+
+        if (
+            toplevel.wayland &&
+            toplevel.wayland.appId
+        ) {
+            return toplevel.wayland.appId
+        }
+
+        return ""
+    }
+
+    // ============================================================
+    // CHAVE DO GRUPO
+    // ============================================================
+
+    function applicationKey(toplevel, index) {
+
+        var appId =
+            applicationId(toplevel)
+
+        if (appId !== "")
+            return appId
+
+        /*
+         * Em situações onde o appId ainda não foi informado,
+         * usamos o título somente como fallback.
+         */
+
+        var title =
+            toplevel.title || ""
+
+        if (title !== "")
+            return "__title__" + title
+
+        return "__window__" + index
+    }
+
+    // ============================================================
+    // CONSTRÓI OS GRUPOS
+    // ============================================================
+
+    function buildGroups() {
+
+        var groups = []
+
+        var toplevels =
+            Hyprland.toplevels.values
+
+        for (
+            var i = 0;
+            i < toplevels.length;
+            ++i
+        ) {
+
+            var toplevel =
+                toplevels[i]
+
+            if (!toplevel)
+                continue
+
+            var key =
+                applicationKey(
+                    toplevel,
+                    i
+                )
+
+            var group =
+                null
+
+            for (
+                var j = 0;
+                j < groups.length;
+                ++j
+            ) {
+
+                if (
+                    groups[j].key ===
+                    key
+                ) {
+
+                    group =
+                        groups[j]
+
+                    break
+                }
+            }
+
+            if (group) {
+
+                group.windows.push(
+                    toplevel
+                )
+
+            } else {
+
+                groups.push({
+                    key: key,
+                    appId: applicationId(toplevel),
+                    windows: [toplevel]
+                })
+            }
+        }
+
+        return groups
+    }
+
+    // ============================================================
+    // MODELO DE APLICAÇÕES
+    //
+    // objectProp: "key" é importante.
+    //
+    // O ScriptModel passa a identificar cada grupo pelo appId,
+    // em vez de comparar estruturalmente o objeto inteiro,
+    // que contém a lista dinâmica de Toplevels.
+    // ============================================================
+
+    ScriptModel {
+        id: applicationModel
+
+        objectProp: "key"
+
+        values:
+            activeApps.buildGroups()
+    }
+
+    // ============================================================
+    // TAMANHO DO COMPONENTE
+    // ============================================================
+
+    implicitWidth:
+        applicationRow.implicitWidth
+
+    implicitHeight:
+        itemSize
+
+    // ============================================================
+    // BARRA DE APLICAÇÕES
+    // ============================================================
+
+    Row {
+        id: applicationRow
+
+        spacing:
+            activeApps.itemSpacing
+
+        Repeater {
+            model:
+                applicationModel
+
+            delegate:
+                Rectangle {
+
+                    required property var modelData
+
+                    width:
+                        activeApps.itemSize
+
+                    height:
+                        activeApps.itemSize
+
+                    radius:
+                        activeApps.itemRadius
+
+                    color:
+                        mouseArea.containsMouse
+                        ? activeApps.hoverColor
+                        : activeApps.normalColor
+
+                    // ====================================================
+                    // JANELA ATIVA DO GRUPO
+                    // ====================================================
+
+                    property var activeWindow: {
+
+                        var windows =
+                            modelData.windows
+
+                        for (
+                            var i = 0;
+                            i < windows.length;
+                            ++i
+                        ) {
+
+                            if (
+                                windows[i] &&
+                                windows[i].activated
+                            ) {
+
+                                return windows[i]
+                            }
+                        }
+
+                        return windows.length > 0
+                            ? windows[0]
+                            : null
+                    }
+
+                    // ====================================================
+                    // ÍCONE
+                    // ====================================================
+
+                    IconImage {
+                        id: appIcon
+
+                        anchors.centerIn:
+                            parent
+
+                        width:
+                            activeApps.iconSize
+
+                        height:
+                            activeApps.iconSize
+
+                        source: {
+
+                            var appId =
+                                modelData.appId
+
+                            if (
+                                appId ===
+                                "dev.zed.Zed"
+                            ) {
+
+                                return Quickshell.iconPath(
+                                    "zed",
+                                    true
+                                )
+                            }
+
+                            if (
+                                appId !== ""
+                            ) {
+
+                                return Quickshell.iconPath(
+                                    appId,
+                                    true
+                                )
+                            }
+
+                            return ""
+                        }
+                    }
+
+                    // ====================================================
+                    // INDICADOR DA JANELA ATIVA
+                    // ====================================================
+
+                    Rectangle {
+
+                        anchors.horizontalCenter:
+                            parent.horizontalCenter
+
+                        anchors.bottom:
+                            parent.bottom
+
+                        anchors.bottomMargin:
+                            activeApps.indicatorBottomMargin
+
+                        width:
+                            activeWindow &&
+                            activeWindow.activated
+                            ? activeApps.indicatorWidth
+                            : 0
+
+                        height:
+                            activeApps.indicatorHeight
+
+                        radius:
+                            activeApps.indicatorHeight / 2
+
+                        color:
+                            activeApps.indicatorColor
+
+                        Behavior on width {
+
+                            NumberAnimation {
+                                duration: 150
+                            }
+                        }
+                    }
+
+                    // ====================================================
+                    // CONTADOR DE JANELAS
+                    // ====================================================
+
+                    Rectangle {
+
+                        visible:
+                            modelData.windows.length > 1
+
+                        anchors {
+                            right:
+                                parent.right
+
+                            top:
+                                parent.top
+
+                            rightMargin:
+                                2
+
+                            topMargin:
+                                2
+                        }
+
+                        width:
+                            12
+
+                        height:
+                            12
+
+                        radius:
+                            6
+
+                        color:
+                            "#707070"
+
+                        Text {
+
+                            anchors.centerIn:
+                                parent
+
+                            text:
+                                modelData.windows.length
+
+                            color:
+                                "#ffffff"
+
+                            font.family:
+                                "JetBrainsMono Nerd Font"
+
+                            font.pixelSize:
+                                8
+
+                            horizontalAlignment:
+                                Text.AlignHCenter
+
+                            verticalAlignment:
+                                Text.AlignVCenter
+                        }
+                    }
+
+                    // ====================================================
+                    // CLIQUE
+                    // ====================================================
+
+                    MouseArea {
+
+                        id: mouseArea
+
+                        anchors.fill:
+                            parent
+
+                        hoverEnabled:
+                            true
+
+                        onClicked: {
+
+                            var windows =
+                                modelData.windows
+
+                            // --------------------------------------------
+                            // UMA JANELA
+                            // --------------------------------------------
+
+                            if (
+                                windows.length === 1
+                            ) {
+
+                                if (
+                                    windows[0] &&
+                                    windows[0].wayland
+                                ) {
+
+                                    windows[0].wayland.activate()
+                                }
+
+                                return
+                            }
+
+                            // --------------------------------------------
+                            // MAIS DE UMA JANELA
+                            // --------------------------------------------
+
+                            activeApps.selectedGroup =
+                                modelData
+
+                            activeApps.selectedItem =
+                                parent
+
+                            windowSelector.visible =
+                                true
+                        }
+                    }
+                }
+        }
+    }
+
+    // ============================================================
+    // POPUP DE JANELAS AGRUPADAS
+    // ============================================================
+
+    PopupWindow {
+        id: windowSelector
+
+        visible:
+            false
+
+        implicitWidth:
+            activeApps.popupWidth
+
+        implicitHeight:
+            activeApps.popupPadding * 2 +
+            (
+                activeApps.selectedGroup
+                ? activeApps.selectedGroup.windows.length
+                : 0
+            ) *
+            activeApps.popupItemHeight
+
+        color:
+            "transparent"
+
+        anchor.item:
+            activeApps.selectedItem
+
+        anchor.edges:
+            Edges.Bottom | Edges.Left
+
+        anchor.gravity:
+            Edges.Bottom | Edges.Right
+
+        grabFocus:
+            true
+
+        Rectangle {
+
+            anchors.fill:
+                parent
+
+            radius:
+                activeApps.popupRadius
+
+            color:
+                activeApps.popupColor
+
+            border.width:
+                1
+
+            border.color:
+                activeApps.popupBorderColor
+
+            Column {
+
+                anchors.fill:
+                    parent
+
+                anchors.margins:
+                    activeApps.popupPadding
+
+                spacing:
+                    2
+
+                Repeater {
+
+                    model:
+                        activeApps.selectedGroup
+                        ? activeApps.selectedGroup.windows
+                        : []
+
+                    delegate:
+                        Rectangle {
+
+                            required property var modelData
+
+                            width:
+                                parent.width
+
+                            height:
+                                activeApps.popupItemHeight
+
+                            radius:
+                                7
+
+                            color:
+                                windowMouseArea.containsMouse
+                                ? activeApps.popupHoverColor
+                                : "transparent"
+
+                            // ============================================
+                            // ÍCONE
+                            // ============================================
+
+                            IconImage {
+
+                                id: windowIcon
+
+                                anchors {
+                                    left:
+                                        parent.left
+
+                                    leftMargin:
+                                        8
+
+                                    verticalCenter:
+                                        parent.verticalCenter
+                                }
+
+                                width:
+                                    20
+
+                                height:
+                                    20
+
+                                source: {
+
+                                    var appId =
+                                        ""
+
+                                    if (
+                                        modelData &&
+                                        modelData.wayland
+                                    ) {
+
+                                        appId =
+                                            modelData.wayland.appId ||
+                                            ""
+                                    }
+
+                                    if (
+                                        appId ===
+                                        "dev.zed.Zed"
+                                    ) {
+
+                                        return Quickshell.iconPath(
+                                            "zed",
+                                            true
+                                        )
+                                    }
+
+                                    if (
+                                        appId !== ""
+                                    ) {
+
+                                        return Quickshell.iconPath(
+                                            appId,
+                                            true
+                                        )
+                                    }
+
+                                    return ""
+                                }
+                            }
+
+                            // ============================================
+                            // TÍTULO
+                            // ============================================
+
+                            Text {
+
+                                anchors {
+                                    left:
+                                        windowIcon.right
+
+                                    leftMargin:
+                                        10
+
+                                    right:
+                                        parent.right
+
+                                    rightMargin:
+                                        8
+
+                                    verticalCenter:
+                                        parent.verticalCenter
+                                }
+
+                                text:
+                                    modelData &&
+                                    modelData.title
+                                    ? modelData.title
+                                    : "Janela"
+
+                                color:
+                                    modelData &&
+                                    modelData.activated
+                                    ? activeApps.popupTextColor
+                                    : activeApps.popupSecondaryTextColor
+
+                                font.family:
+                                    "JetBrainsMono Nerd Font"
+
+                                font.pixelSize:
+                                    11
+
+                                elide:
+                                    Text.ElideRight
+                            }
+
+                            // ============================================
+                            // CLIQUE
+                            // ============================================
+
+                            MouseArea {
+
+                                id: windowMouseArea
+
+                                anchors.fill:
+                                    parent
+
+                                hoverEnabled:
+                                    true
+
+                                onClicked: {
+
+                                    if (
+                                        modelData &&
+                                        modelData.wayland
+                                    ) {
+
+                                        modelData.wayland.activate()
+                                    }
+
+                                    windowSelector.visible =
+                                        false
+                                }
+                            }
+                        }
+                }
+            }
+        }
+    }
+}

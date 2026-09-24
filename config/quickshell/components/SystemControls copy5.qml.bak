@@ -1,0 +1,607 @@
+import Quickshell
+import Quickshell.Io
+import QtQuick
+
+Item {
+    id: root
+
+    signal settingsRequested()
+
+    readonly property int iconSize: 18
+    readonly property int spacing: 10
+    readonly property string iconFont: "Material Symbols Rounded"
+
+    readonly property color inactive: "#666666"
+    readonly property color wifiColor: "#00e5ff"
+    readonly property color bluetoothColor: "#00aaff"
+    readonly property color batteryColor: "#50fa7b"
+    readonly property color brightnessColor: "#f1fa8c"
+    readonly property color audioColor: "#ff79c6"
+    readonly property color powerColor: "#ffffff"
+
+    readonly property string iconEthernetConnected:
+        String.fromCodePoint(0xE322)
+
+    readonly property string iconEthernetDisconnected:
+        String.fromCodePoint(0xE648)
+
+    readonly property string iconWifi0:
+        String.fromCodePoint(0xEBE4)
+
+    readonly property string iconWifi1:
+        String.fromCodePoint(0xEBD6)
+
+    readonly property string iconWifi2:
+        String.fromCodePoint(0xEBD6)
+
+    readonly property string iconWifi3:
+        String.fromCodePoint(0xEBE1)
+
+    readonly property string iconWifi4:
+        String.fromCodePoint(0xEBE1)
+
+    readonly property string iconWifiDisconnected:
+        String.fromCodePoint(0xE648)
+
+    readonly property string iconBluetoothEnabled:
+        String.fromCodePoint(0xE1A7)
+
+    readonly property string iconBluetoothConnected:
+        String.fromCodePoint(0xE1A8)
+
+    readonly property string iconBattery0:
+        String.fromCodePoint(0xEBDC)
+
+    readonly property string iconBattery1:
+        String.fromCodePoint(0xEBDC)
+
+    readonly property string iconBattery2:
+        String.fromCodePoint(0xEBD9)
+
+    readonly property string iconBattery3:
+        String.fromCodePoint(0xEBDD)
+
+    readonly property string iconBattery4:
+        String.fromCodePoint(0xEBDD)
+
+    readonly property string iconBattery5:
+        String.fromCodePoint(0xEBE2)
+
+    readonly property string iconBattery6:
+        String.fromCodePoint(0xEBE2)
+
+    readonly property string iconBattery7:
+        String.fromCodePoint(0xEBE2)
+
+    readonly property string iconBattery8:
+        String.fromCodePoint(0xE1A4)
+
+    readonly property string iconBattery9:
+        String.fromCodePoint(0xE1A4)
+
+    readonly property string iconBattery10:
+        String.fromCodePoint(0xE1A4)
+
+    readonly property string iconBattery0c:
+        String.fromCodePoint(0xEBDC)
+
+    readonly property string iconBattery1c:
+        String.fromCodePoint(0xEBDC)
+
+    readonly property string iconBattery2c:
+        String.fromCodePoint(0xEBD9)
+
+    readonly property string iconBattery3c:
+        String.fromCodePoint(0xEBDD)
+
+    readonly property string iconBattery4c:
+        String.fromCodePoint(0xEBDD)
+
+    readonly property string iconBattery5c:
+        String.fromCodePoint(0xEBE2)
+
+    readonly property string iconBattery6c:
+        String.fromCodePoint(0xEBE2)
+
+    readonly property string iconBattery7c:
+        String.fromCodePoint(0xEBE2)
+
+    readonly property string iconBattery8c:
+        String.fromCodePoint(0xE1A4)
+
+    readonly property string iconBattery9c:
+        String.fromCodePoint(0xE1A4)
+
+    readonly property string iconBattery10c:
+        String.fromCodePoint(0xE1A4)
+
+    readonly property string iconBrightLow:
+        String.fromCodePoint(0xE1AD)
+
+    readonly property string iconBrightMedium:
+        String.fromCodePoint(0xE1AE)
+
+    readonly property string iconBrightHigh:
+        String.fromCodePoint(0xE1AC)
+
+    readonly property string iconVolume0:
+        String.fromCodePoint(0xE04C)
+
+    readonly property string iconVolume1:
+        String.fromCodePoint(0xE04C)
+
+    readonly property string iconVolume2:
+        String.fromCodePoint(0xE04D)
+
+    readonly property string iconVolume3:
+        String.fromCodePoint(0xE050)
+
+    readonly property string iconAudioMuted:
+        String.fromCodePoint(0xE04F)
+
+    readonly property string iconPowerOff:
+        String.fromCodePoint(0xE8AC)
+
+    property bool wifiEnabled: false
+    property bool wifiConnected: false
+    property int wifiSignal: 0
+
+    property bool ethernetConnected: false
+
+    property bool bluetoothAvailable: false
+    property bool bluetoothConnected: false
+
+    property bool batteryAvailable: false
+    property int batteryPercent: 0
+    property bool batteryCharging: false
+
+    property bool brightnessAvailable: false
+    property int brightnessPercent: 0
+
+    property bool audioAvailable: false
+    property int volumePercent: 0
+    property bool audioMuted: false
+
+    Process {
+        id: statusProcess
+
+        command: [
+            "bash",
+            "-c",
+            "printf 'WIFI=%s\\n' \"$(nmcli -t radio wifi 2>/dev/null)\"; " +
+            "nmcli -t -f DEVICE,TYPE,STATE device 2>/dev/null | " +
+            "while IFS=: read -r device type state; do " +
+            "printf 'NET=%s,%s,%s\\n' \"$device\" \"$type\" \"$state\"; " +
+            "done; " +
+            "nmcli -t -f IN-USE,SIGNAL device wifi 2>/dev/null | " +
+            "while IFS=: read -r inuse signal; do " +
+            "if [ \"$inuse\" = '*' ]; then " +
+            "printf 'WIFISIGNAL=%s\\n' \"$signal\"; " +
+            "fi; " +
+            "done; " +
+            "if command -v bluetoothctl >/dev/null; then " +
+            "printf 'BTPOWER=%s\\n' \"$(bluetoothctl show 2>/dev/null | sed -n 's/.*Powered: //p' | head -1)\"; " +
+            "printf 'BTCOUNT=%s\\n' \"$(bluetoothctl devices Connected 2>/dev/null | wc -l)\"; " +
+            "fi; " +
+            "battery=$(upower -e 2>/dev/null | grep -m1 '/battery_'); " +
+            "if [ -n \"$battery\" ]; then " +
+            "printf 'BAT=%s\\n' \"$(upower -i \"$battery\" 2>/dev/null | sed -n 's/^[[:space:]]*percentage:[[:space:]]*//p' | tr -d '%' | head -1)\"; " +
+            "printf 'BATCHARGE=%s\\n' \"$(upower -i \"$battery\" 2>/dev/null | sed -n 's/^[[:space:]]*state:[[:space:]]*//p' | head -1)\"; " +
+            "fi; " +
+            "backlight=$(find /sys/class/backlight -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1); " +
+            "if [ -n \"$backlight\" ]; then " +
+            "max=$(cat \"$backlight/max_brightness\" 2>/dev/null); " +
+            "current=$(cat \"$backlight/brightness\" 2>/dev/null); " +
+            "if [ -n \"$max\" ] && [ \"$max\" -gt 0 ]; then " +
+            "printf 'BRIGHT=%s\\n' \"$((current * 100 / max))\"; " +
+            "fi; " +
+            "fi; " +
+            "if command -v wpctl >/dev/null; then " +
+            "printf 'AUDIO=%s\\n' \"$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)\"; " +
+            "fi"
+        ]
+
+        running: true
+
+        stdout: StdioCollector {
+            onStreamFinished: root.parseStatus(this.text)
+        }
+    }
+
+    function parseStatus(output) {
+        var lines = output.trim().split("\n")
+
+        root.wifiConnected = false
+        root.ethernetConnected = false
+        root.wifiSignal = 0
+
+        root.bluetoothAvailable = false
+        root.bluetoothConnected = false
+
+        root.batteryAvailable = false
+        root.batteryCharging = false
+
+        root.brightnessAvailable = false
+        root.audioAvailable = false
+        root.audioMuted = false
+
+        for (var i = 0; i < lines.length; ++i) {
+            var line = lines[i]
+
+            if (line.indexOf("WIFI=") === 0) {
+                root.wifiEnabled =
+                    line.substring(5).trim() === "enabled"
+                continue
+            }
+
+            if (line.indexOf("NET=") === 0) {
+                var net = line.substring(4).split(",")
+
+                if (net.length >= 3) {
+                    var type = net[1]
+                    var state = net[2]
+
+                    if (type === "ethernet" &&
+                        state === "connected") {
+                        root.ethernetConnected = true
+                    }
+
+                    if (type === "wifi" &&
+                        state === "connected") {
+                        root.wifiConnected = true
+                    }
+                }
+
+                continue
+            }
+
+            if (line.indexOf("WIFISIGNAL=") === 0) {
+                var signal =
+                    parseInt(line.substring(11).trim())
+
+                if (!isNaN(signal))
+                    root.wifiSignal = signal
+
+                continue
+            }
+
+            if (line.indexOf("BTPOWER=") === 0) {
+                root.bluetoothAvailable =
+                    line.substring(8).trim() === "yes"
+                continue
+            }
+
+            if (line.indexOf("BTCOUNT=") === 0) {
+                var count =
+                    parseInt(line.substring(8).trim())
+
+                root.bluetoothConnected =
+                    !isNaN(count) && count > 0
+
+                continue
+            }
+
+            if (line.indexOf("BAT=") === 0) {
+                var battery =
+                    parseInt(line.substring(4).trim())
+
+                if (!isNaN(battery)) {
+                    root.batteryAvailable = true
+                    root.batteryPercent =
+                        Math.max(0, Math.min(100, battery))
+                }
+
+                continue
+            }
+
+            if (line.indexOf("BATCHARGE=") === 0) {
+                root.batteryCharging =
+                    line.substring(10).trim() === "charging"
+                continue
+            }
+
+            if (line.indexOf("BRIGHT=") === 0) {
+                var brightness =
+                    parseInt(line.substring(7).trim())
+
+                if (!isNaN(brightness)) {
+                    root.brightnessAvailable = true
+                    root.brightnessPercent =
+                        Math.max(0, Math.min(100, brightness))
+                }
+
+                continue
+            }
+
+            if (line.indexOf("AUDIO=") === 0) {
+                var audio =
+                    line.substring(6).trim()
+
+                var audioParts = audio.split(" ")
+
+                if (audioParts.length > 1) {
+                    var volume =
+                        parseFloat(audioParts[1])
+
+                    if (!isNaN(volume)) {
+                        root.audioAvailable = true
+                        root.volumePercent =
+                            Math.round(volume * 100)
+                    }
+
+                    root.audioMuted =
+                        audio.indexOf("[MUTED]") !== -1
+                }
+            }
+        }
+    }
+
+    function networkIcon() {
+        if (root.ethernetConnected)
+            return root.iconEthernetConnected
+
+        if (!root.wifiEnabled)
+            return ""
+
+        if (!root.wifiConnected)
+            return root.iconWifiDisconnected
+
+        if (root.wifiSignal >= 80)
+            return root.iconWifi4
+
+        if (root.wifiSignal >= 60)
+            return root.iconWifi3
+
+        if (root.wifiSignal >= 40)
+            return root.iconWifi2
+
+        if (root.wifiSignal >= 20)
+            return root.iconWifi1
+
+        return root.iconWifi0
+    }
+
+    function networkColor() {
+        if (root.ethernetConnected || root.wifiConnected)
+            return root.wifiColor
+
+        return root.inactive
+    }
+
+    function bluetoothIcon() {
+        if (root.bluetoothConnected)
+            return root.iconBluetoothConnected
+
+        return root.iconBluetoothEnabled
+    }
+
+    function bluetoothColor() {
+        if (root.bluetoothConnected)
+            return root.bluetoothColor
+
+        return root.inactive
+    }
+
+    function batteryIcon() {
+        var level =
+            Math.min(10, Math.floor(root.batteryPercent / 10))
+
+        if (root.batteryPercent >= 100)
+            level = 10
+
+        if (root.batteryCharging) {
+            switch (level) {
+            case 0: return root.iconBattery0c
+            case 1: return root.iconBattery1c
+            case 2: return root.iconBattery2c
+            case 3: return root.iconBattery3c
+            case 4: return root.iconBattery4c
+            case 5: return root.iconBattery5c
+            case 6: return root.iconBattery6c
+            case 7: return root.iconBattery7c
+            case 8: return root.iconBattery8c
+            case 9: return root.iconBattery9c
+            default: return root.iconBattery10c
+            }
+        }
+
+        switch (level) {
+        case 0: return root.iconBattery0
+        case 1: return root.iconBattery1
+        case 2: return root.iconBattery2
+        case 3: return root.iconBattery3
+        case 4: return root.iconBattery4
+        case 5: return root.iconBattery5
+        case 6: return root.iconBattery6
+        case 7: return root.iconBattery7
+        case 8: return root.iconBattery8
+        case 9: return root.iconBattery9
+        default: return root.iconBattery10
+        }
+    }
+
+    function brightnessIcon() {
+        if (root.brightnessPercent <= 33)
+            return root.iconBrightLow
+
+        if (root.brightnessPercent <= 66)
+            return root.iconBrightMedium
+
+        return root.iconBrightHigh
+    }
+
+    function audioIcon() {
+        if (root.audioMuted)
+            return root.iconAudioMuted
+
+        if (root.volumePercent <= 0)
+            return root.iconVolume0
+
+        if (root.volumePercent <= 33)
+            return root.iconVolume1
+
+        if (root.volumePercent <= 66)
+            return root.iconVolume2
+
+        return root.iconVolume3
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+
+        onTriggered: {
+            statusProcess.running = false
+            statusProcess.running = true
+        }
+    }
+
+    Rectangle {
+        anchors.fill: parent
+
+        color: "#e6151518"
+        border.color: "#29252f"
+        border.width: 1
+        radius: height / 2
+
+        Row {
+            anchors.centerIn: parent
+            spacing: root.spacing
+
+            Text {
+                visible: root.networkIcon() !== ""
+
+                width: root.iconSize
+                height: root.iconSize
+
+                text: root.networkIcon()
+
+                font.family: root.iconFont
+                font.pixelSize: root.iconSize
+
+                color: root.networkColor()
+
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            Text {
+                visible: root.bluetoothAvailable
+
+                width: root.iconSize
+                height: root.iconSize
+
+                text: root.bluetoothIcon()
+
+                font.family: root.iconFont
+                font.pixelSize: root.iconSize
+
+                color: root.bluetoothColor()
+
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            Text {
+                visible: root.batteryAvailable
+
+                width: root.iconSize
+                height: root.iconSize
+
+                text: root.batteryIcon()
+
+                font.family: root.iconFont
+                font.pixelSize: root.iconSize
+
+                color: root.batteryColor
+
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            Text {
+                visible: root.brightnessAvailable
+
+                width: root.iconSize
+                height: root.iconSize
+
+                text: root.brightnessIcon()
+
+                font.family: root.iconFont
+                font.pixelSize: root.iconSize
+
+                color: root.brightnessColor
+
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            Text {
+                visible: root.audioAvailable
+
+                width: root.iconSize
+                height: root.iconSize
+
+                text: root.audioIcon()
+
+                font.family: root.iconFont
+                font.pixelSize: root.iconSize
+
+                color: root.audioColor
+
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            Text {
+                width: root.iconSize
+                height: root.iconSize
+
+                text: root.iconPowerOff
+
+                font.family: root.iconFont
+                font.pixelSize: root.iconSize
+
+                color: root.powerColor
+
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+        }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+
+        cursorShape: Qt.PointingHandCursor
+
+        onClicked:
+            root.settingsRequested()
+    }
+
+    implicitHeight: 36
+
+    implicitWidth: {
+        var count = 2
+
+        if (root.networkIcon() !== "")
+            count++
+
+        if (root.bluetoothAvailable)
+            count++
+
+        if (root.batteryAvailable)
+            count++
+
+        if (root.brightnessAvailable)
+            count++
+
+        if (root.audioAvailable)
+            count++
+
+        return count * root.iconSize +
+               (count - 1) * root.spacing +
+               28
+    }
+}

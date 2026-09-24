@@ -1,0 +1,695 @@
+pragma Singleton
+
+import Quickshell
+
+Singleton {
+
+    // ============================================================
+    // FONTES
+    // ============================================================
+
+    // Fonte principal dos ícones de REDE
+    readonly property string networkFont:
+        ""
+
+    // Fonte dos ícones de SISTEMA
+    readonly property string systemFont:
+        ""
+
+    // Fonte dos ícones de NOTIFICAÇÕES
+    readonly property string notificationFont:
+        ""
+
+    // Fonte dos ícones de ÁUDIO
+    readonly property string audioFont:
+        ""
+
+    // Fonte dos ícones de DISPOSITIVOS
+    readonly property string deviceFont:
+        ""
+
+    // Fonte dos ícones de CONTROLES
+    readonly property string controlFont:
+        ""
+
+
+    // ============================================================
+    // REDE — GERAL
+    // ============================================================
+
+    // Rede disponível / ativa
+    readonly property string networkConnected:
+        ""
+
+    // Rede indisponível / desconectada
+    readonly property string networkDisconnected:
+        ""
+
+    // Rede desligada
+    readonly property string networkDisabled:
+        ""
+
+    // Sem conexão de rede
+    readonly property string networkNoConnection:
+        ""
+
+
+    // ============================================================
+    // REDE — CABEADA / ETHERNET
+    // ============================================================
+
+    // Ethernet conectada (2 computadores ligados por cabo)
+    readonly property string ethernetConnected:
+        String.fromCodePoint(0xF0318)
+
+    // Sem conexao alguma (icone de globo)
+    readonly property string ethernetDisconnected:
+        String.fromCodePoint(0xF484)
+
+    // Ethernet conectada mas sem internet (2 computadores com um x na ligacao)
+    readonly property string ethernetDisabled:
+        String.fromCodePoint(0xF0319)
+
+    // Cabo conectado
+    readonly property string ethernetCableConnected:
+        ""
+
+    // Cabo desconectado
+    readonly property string ethernetCableDisconnected:
+        ""
+
+
+    // ============================================================
+    // REDE — WI-FI
+    // ============================================================
+
+    // Wi-Fi ligado, sem conexão
+    readonly property string wifiEnabled:
+        String.fromCodePoint(0xF092B)
+
+    // Wi-Fi desligado
+    readonly property string wifiDisabled:
+        String.fromCodePoint(0xF092E)
+
+    // Wi-Fi conectado — sinal muito fraco 0
+    readonly property string wifi0:
+        String.fromCodePoint(0xF092F)
+
+    // Wi-Fi conectado — sinal fraco 1
+    readonly property string wifi1:
+        String.fromCodePoint(0xF091F)
+
+    // Wi-Fi conectado — sinal medio 2
+    readonly property string wifi2:
+        String.fromCodePoint(0xF0922)
+
+    // Wi-Fi conectado — sinal forte 3
+    readonly property string wifi3:
+        String.fromCodePoint(0xF0925)
+
+    // Wi-Fi conectado — sinal cheio 4
+    readonly property string wifi4:
+        String.fromCodePoint(0xF0928)
+
+    // Wi-Fi conectado — sinal muito fraco 0 com alerta !
+    readonly property string wifi0a:
+        String.fromCodePoint(0xF092B)
+
+    // Wi-Fi conectado — sinal fraco 1 com alerta !
+    readonly property string wifi1a:
+        String.fromCodePoint(0xF0920)
+
+    // Wi-Fi conectado — sinal medio 2 com alerta !
+    readonly property string wifi2a:
+        String.fromCodePoint(0xF0923)
+
+    // Wi-Fi conectado — sinal forte 3 com alerta !
+    readonly property string wifi3a:
+        String.fromCodePoint(0xF0926)
+
+    // Wi-Fi conectado — sinal cheio 4 com alerta !
+    readonly property string wifi4a:
+        String.fromCodePoint(0xF0929)
+
+
+
+    // Wi-Fi sem conexão
+    readonly property string wifiDisconnected:
+        ""
+
+    // Wi-Fi procurando redes
+    readonly property string wifiSearching:
+        ""
+
+    // Wi-Fi com problema / alerta
+    readonly property string wifiWarning:
+        ""
+
+
+    // ============================================================
+    // BATERIA
+    // ============================================================
+
+    // Bateria 0-5%
+    readonly property string battery0:
+        String.fromCodePoint(0xF008E)
+
+    // Bateria 6-15%
+    readonly property string battery1:
+        String.fromCodePoint(0xF007A)
+
+    // Bateria 16-25%
+    readonly property string battery2:
+        String.fromCodePoint(0xF007B)
+
+    // Bateria 26-35%
+    readonly property string battery3:
+        String.fromCodePoint(0xF007C)
+
+    // Bateria 36-45%
+    readonly property string battery4:
+        String.fromCodePoint(0xF007D)
+
+    // Bateria 46-55%
+    readonly property string battery5:
+        String.fromCodePoint(0xF007E)
+
+    // Bateria 56-65%
+    readonly property string battery6:
+        String.fromCodePoint(0xF007F)
+
+    // Bateria 66-75%
+    readonly property string battery7:
+        String.fromCodePoint(0xF0080)
+
+    // Bateria 76-85%
+    readonly property string battery8:
+        String.fromCodePoint(0xF0081)
+
+    // Bateria 86-95%
+    readonly property string battery9:
+        String.fromCodePoint(0xF0082)
+
+    // Bateria 96-100%
+    readonly property string battery10:
+        String.fromCodePoint(0xF0079)
+
+    // Bateria 0-5% carregando
+    readonly property string battery0c:
+        String.fromCodePoint(0xF089F)
+
+    // Bateria 6-15% carregando
+    readonly property string battery1c:
+        String.fromCodePoint(0xF089C)
+
+    // Bateria 16-25% carregando
+    readonly property string battery2c:
+        String.fromCodePoint(0xF0086)
+
+    // Bateria 26-35% carregando
+    readonly property string battery3c:
+        String.fromCodePoint(0xF0087)
+
+    // Bateria 36-45% carregando
+    readonly property string battery4c:
+        String.fromCodePoint(0xF0088)
+
+    // Bateria 46-55% carregando
+    readonly property string battery5c:
+        String.fromCodePoint(0xF089d)
+
+    // Bateria 56-65% carregando
+    readonly property string battery6c:
+        String.fromCodePoint(0xF0089)
+
+    // Bateria 66-75% carregando
+    readonly property string battery7c:
+        String.fromCodePoint(0xF089E)
+
+    // Bateria 76-85% carregando
+    readonly property string battery8c:
+        String.fromCodePoint(0xF008A)
+
+    // Bateria 86-95% carregando
+    readonly property string battery9c:
+        String.fromCodePoint(0xF008B)
+
+    // Bateria 96-100% carregando
+    readonly property string battery10c:
+        String.fromCodePoint(0xF0085)
+
+    // Bateria com problema
+    readonly property string batteryWarning:
+        String.fromCodePoint(0xf10cd)
+
+
+    // ============================================================
+    // GERENCIAMENTO DE SISTEMA — CPU
+    // ============================================================
+
+    // Processador / CPU  (nas demais configuracoes serao usadas cores para indicar criticidade, cinza quando está normal e laranja ou vermelho quando estiver acima de 90%)
+    readonly property string cpu:
+        String.fromCodePoint(0xf4bc)
+
+    // ============================================================
+    // GERENCIAMENTO DE SISTEMA — TEMPERATURA
+    // ============================================================
+
+    // Temperatura / Temperatura 100%
+    readonly property string temperature100:
+        String.fromCodePoint(0xf2c7)
+
+    // Temperatura / Temperatura 75%
+    readonly property string temperature75:
+        String.fromCodePoint(0xf2c8)
+
+    // Temperatura / Temperatura 50%
+    readonly property string temperature50:
+        String.fromCodePoint(0xf2c9)
+
+    // Temperatura / Temperatura 25%
+    readonly property string temperature25:
+        String.fromCodePoint(0xf2ca)
+
+    // Temperatura / Temperatura 0%
+    readonly property string temperature0:
+        String.fromCodePoint(0xf2cb)
+
+    // ============================================================
+    // GERENCIAMENTO DE SISTEMA — MEMÓRIA
+    // ============================================================
+
+    // Memória RAM (nas demais configuracoes serao usadas cores para indicar criticidade, cinza quando está normal e laranja ou vermelho quando estiver acima de 90%)
+    readonly property string memory:
+        String.fromCodePoint(0xefc5)
+
+    // ============================================================
+    // GERENCIAMENTO DE SISTEMA — GPU / VGA
+    // ============================================================
+
+    // GPU / VGA (nas demais configuracoes serao usadas cores para indicar criticidade, cinza quando está normal e laranja ou vermelho quando estiver acima de 90%)
+    readonly property string gpu:
+        String.fromCodePoint(0xf1104)
+
+    // ============================================================
+    // GERENCIAMENTO DE SISTEMA — TRANSFERÊNCIA
+    // ============================================================
+
+    // Download
+    readonly property string download:
+        String.fromCodePoint(0xf0533)
+
+    // Upload
+    readonly property string upload:
+        String.fromCodePoint(0xf0535)
+
+    // ============================================================
+    // NOTIFICAÇÕES
+    // ============================================================
+
+    // Notificação
+    readonly property string notification:
+        ""
+
+    // Notificação nova
+    readonly property string notificationNew:
+        ""
+
+    // Notificação lida
+    readonly property string notificationRead:
+        ""
+
+    // Notificação desativada
+    readonly property string notificationDisabled:
+        ""
+
+    // Notificação importante
+    readonly property string notificationImportant:
+        ""
+
+    // Alerta
+    readonly property string alert:
+        ""
+
+    // Informação
+    readonly property string information:
+        ""
+
+    // Sucesso / operação concluída
+    readonly property string success:
+        ""
+
+    // Erro
+    readonly property string error:
+        ""
+
+    // Aviso
+    readonly property string warning:
+        ""
+
+
+    // ============================================================
+    // ÁREA DE TRANSFERÊNCIA — CLIPBOARD
+    // ============================================================
+
+    // Texto copiado
+    readonly property string clipboardText:
+        ""
+
+    // Imagem copiada
+    readonly property string clipboardImage:
+        ""
+
+    // Arquivo copiado
+    readonly property string clipboardFile:
+        ""
+
+    // Clipboard / área de transferência
+    readonly property string clipboard:
+        ""
+
+    // Limpar clipboard
+    readonly property string clipboardClear:
+        ""
+
+
+    // ============================================================
+    // LIMPEZA / MANUTENÇÃO DO SISTEMA
+    // ============================================================
+
+    // Limpeza do sistema (icone de vassoura)
+    readonly property string systemClean:
+        String.fromCodePoint(0xF00E2)
+
+    // Limpeza de cache
+    readonly property string cacheClean:
+        ""
+
+    // Lixeira
+    readonly property string trash:
+        ""
+
+    // Lixeira vazia
+    readonly property string trashEmpty:
+        ""
+
+    // Limpar arquivos
+    readonly property string fileClean:
+        ""
+
+    // Manutenção do sistema
+    readonly property string systemMaintenance:
+        ""
+
+
+    // ============================================================
+    // ATUALIZAÇÕES DO SISTEMA
+    // ============================================================
+
+    // Atualização disponível (nas demais aplicacoes deixar na cor azul archlinux e com a quantidade de atualiacoes do lado direito também em azul)
+    readonly property string updateAvailable:
+        String.fromCodePoint(0xF303)
+
+    // Nenhuma atualização disponível (nas demais configuracoes deixar na cor cinza e sem nenhum numero do lado)
+    readonly property string updateNone:
+        String.fromCodePoint(0xF303)
+
+    // ============================================================
+    // MODO AVIÃO
+    // ============================================================
+
+    // Modo avião ligado
+    readonly property string airplaneEnabled:
+        String.fromCodePoint(0xF001D)
+
+    // Modo avião desligado
+    readonly property string airplaneDisabled:
+        String.fromCodePoint(0xF001E)
+
+    // ============================================================
+    // ÁUDIO — VOLUME
+    // ============================================================
+
+
+    // para todas as configuracoes de audio, colocar o valor da porcentagem do audio (somente se estiver ativado) do lado direito do icone e na mesma cor do icone.
+    // Volume máximo / muito alto (nas demais configuracoes deixar na cor rosa)
+    readonly property string volume3:
+        String.fromCodePoint(0xF028)
+
+    // Volume médio (nas demais configuracoes deixar na cor rosa)
+    readonly property string volume2:
+        String.fromCodePoint(0xEFCF)
+
+    // Volume baixo (nas demais configuracoes deixar na cor rosa)
+    readonly property string volume1:
+        String.fromCodePoint(0xF027)
+
+    // Volume zero (nas demais configuracoes deixar na cor rosa)
+    readonly property string volume0:
+        String.fromCodePoint(0xF026)
+
+    // Áudio mutado (nas demais configuracoes deixar na cor rosa)
+    readonly property string audioMuted:
+        String.fromCodePoint(0xEEE8)
+
+    // Áudio desativado (nas demais configuracoes deixar na cor cinza)
+    readonly property string audioDisabled:
+        String.fromCodePoint(0xEEE8)
+
+    // Alto-falante (nas demais configuracoes deixar na cor rosa)
+    readonly property string speaker:
+        String.fromCodePoint(0xF04C3)
+
+    // Fones de ouvido (nas demais configuracoes deixar na cor rosa)
+    readonly property string headphones:
+        String.fromCodePoint(0xEE58)
+
+
+    // ============================================================
+    // ÁUDIO — MICROFONE
+    // ============================================================
+
+    // Microfone ligado (nao preenchido)
+    readonly property string microphoneEnabled:
+        String.fromCodePoint(0xF130)
+
+    // Microfone desligado (nao preenchido)
+    readonly property string microphoneDisabled:
+        String.fromCodePoint(0xF131)
+
+    // ============================================================
+    // BRILHO DA TELA
+    // ============================================================
+
+    // Tela brilho baixo
+    readonly property string brighLow:
+        String.fromCodePoint(0xf00de)
+
+    // Tela brilho médio
+    readonly property string brightMedium:
+        String.fromCodePoint(0xf00df)
+
+    // Tela brilho alto
+    readonly property string brightHigh:
+        String.fromCodePoint(0xf00e0)
+
+    // Tela brilho automatico
+    readonly property string brightAuto:
+        String.fromCodePoint(0xf00e1)
+
+    // ============================================================
+    // TECLADO
+    // ============================================================
+
+    // Teclado
+    readonly property string keyboard:
+        String.fromCodePoint(0xF11C)
+
+    // ============================================================
+    // GAMEPAD / CONTROLE
+    // ============================================================
+
+    // Controle / gamepad
+    readonly property string gamepad:
+        String.fromCodePoint(0xF02B4)
+
+    // Controle ligado
+    readonly property string gamepadEnabled:
+        String.fromCodePoint(0xF02B4)
+
+    // Controle desligado
+    readonly property string gamepadDisabled:
+        String.fromCodePoint(0xF02B5)
+
+    // ============================================================
+    // BLUETOOTH
+    // ============================================================
+
+    // Bluetooth
+    readonly property string bluetooth:
+        String.fromCodePoint(0xF294)
+
+    // Bluetooth ligado (nas outras configuracoes deixar na cor azul padrao do bluetooth)
+    readonly property string bluetoothEnabled:
+        String.fromCodePoint(0xF294)
+
+    // Bluetooth desligado (nas outras configuracoes deixar na cor cinza)
+    readonly property string bluetoothDisabled:
+        String.fromCodePoint(0xF294)
+
+    // Bluetooth conectado (nas demais configuracoes indicar um numero ao lado direito com a quantidade de equipamentos conectados pelo dispositivo bluetooth)
+    readonly property string bluetoothConnected:
+        String.fromCodePoint(0xF293)
+
+    // Bluetooth desconectado = bluetooth ligado sem estar conectado a algum dispositivo
+    readonly property string bluetoothDisconnected:
+        ""
+
+    // Bluetooth procurando dispositivos
+    readonly property string bluetoothSearching:
+        ""
+
+    // Bluetooth com alerta
+    readonly property string bluetoothWarning:
+        ""
+
+
+    // ============================================================
+    // CONTROLES / AÇÕES GERAIS
+    // ============================================================
+
+    // Configurações
+    readonly property string settings:
+        ""
+
+    // Menu
+    readonly property string menu:
+        String.fromCodePoint(0xF359)
+
+    // Fechar
+    readonly property string close:
+        ""
+
+    // Voltar
+    readonly property string back:
+        ""
+
+    // Avançar
+    readonly property string forward:
+        ""
+
+    // Mais
+    readonly property string add:
+        ""
+
+    // Menos
+    readonly property string remove:
+        ""
+
+    // Confirmar
+    readonly property string confirm:
+        ""
+
+    // Cancelar
+    readonly property string cancel:
+        ""
+
+    // Ligar
+    readonly property string powerOn:
+        ""
+
+    // Desligar
+    readonly property string powerOff:
+        String.fromCodePoint(0xf011)
+
+    // Reiniciar
+    readonly property string restart:
+        String.fromCodePoint(0xf01e)
+
+    // Bloquear
+    readonly property string lock:
+        String.fromCodePoint(0xf023)
+
+
+    // ============================================================
+    // ARQUIVOS / APLICAÇÕES
+    // ============================================================
+
+    // Arquivo
+    readonly property string file:
+        ""
+
+    // Pasta
+    readonly property string folder:
+        ""
+
+    // Aplicação
+    readonly property string application:
+        ""
+
+    // Hyprland
+    readonly property string hyprland:
+        String.fromCodePoint(0xF359)
+
+    // Terminal
+    readonly property string terminal:
+        String.fromCodePoint(0xf489)
+
+    // Navegador
+    readonly property string browser:
+        ""
+
+    // Gerenciador de arquivos
+    readonly property string fileManager:
+        ""
+
+
+    // ============================================================
+    // IMAGENS / MÍDIA
+    // ============================================================
+
+    // Imagem
+    readonly property string image:
+        ""
+
+    // Vídeo
+    readonly property string video:
+        ""
+
+    // Música
+    readonly property string music:
+        ""
+
+    // Play
+    readonly property string play:
+        ""
+
+    // Pause
+    readonly property string pause:
+        ""
+
+    // Stop
+    readonly property string stop:
+        ""
+
+
+    // ============================================================
+    // OUTROS
+    // ============================================================
+
+    // Ajuda
+    readonly property string help:
+        ""
+
+    // Informação
+    readonly property string info:
+        ""
+
+    // Carregando / processamento
+    readonly property string loading:
+        ""
+
+    // Concluído
+    readonly property string done:
+        ""
+}

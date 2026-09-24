@@ -1,0 +1,200 @@
+import Quickshell
+import Quickshell.Hyprland
+import Quickshell.Widgets
+import QtQuick
+
+Row {
+    id: activeApps
+
+    // ============================================================
+    // CONFIGURAÇÃO
+    // ============================================================
+
+    readonly property int itemSize:
+        32
+
+    readonly property int itemRadius:
+        16
+
+    readonly property int itemSpacing:
+        4
+
+    readonly property int iconSize:
+        18
+
+    readonly property int indicatorWidth:
+        14
+
+    readonly property int indicatorHeight:
+        2
+
+    readonly property int indicatorBottomMargin:
+        4
+
+    // ============================================================
+    // CORES
+    // ============================================================
+
+    readonly property color normalColor:
+        "#000000"
+
+    readonly property color hoverColor:
+        "#303030"
+
+    readonly property color indicatorColor:
+        "#707070"
+
+    // ============================================================
+    // ANIMAÇÃO
+    // ============================================================
+
+    readonly property int colorAnimationDuration:
+        150
+
+    readonly property int indicatorAnimationDuration:
+        150
+
+    // ============================================================
+    // LAYOUT
+    // ============================================================
+
+    spacing:
+        itemSpacing
+
+    // ============================================================
+    // APLICAÇÕES ABERTAS
+    // ============================================================
+
+    Repeater {
+        model:
+            Hyprland.toplevels
+
+        delegate:
+            Rectangle {
+                required property var modelData
+
+                width:
+                    activeApps.itemSize
+
+                height:
+                    activeApps.itemSize
+
+                radius:
+                    activeApps.itemRadius
+
+                color:
+                    mouseArea.containsMouse
+                    ? activeApps.hoverColor
+                    : activeApps.normalColor
+
+                // ====================================================
+                // ÍCONE
+                // ====================================================
+
+                IconImage {
+                    id: appIcon
+
+                    anchors.centerIn:
+                        parent
+
+                    width:
+                        activeApps.iconSize
+
+                    height:
+                        activeApps.iconSize
+
+                    source: {
+                        var appId = ""
+
+                        if (modelData.wayland) {
+                            appId =
+                                modelData.wayland.appId || ""
+                        }
+
+                        if (appId === "dev.zed.Zed") {
+                            return Quickshell.iconPath(
+                                "zed",
+                                true
+                            )
+                        }
+
+                        if (appId !== "") {
+                            return Quickshell.iconPath(
+                                appId,
+                                true
+                            )
+                        }
+
+                        return ""
+                    }
+                }
+
+                // ====================================================
+                // INDICADOR DE APLICAÇÃO ATIVA
+                // ====================================================
+
+                Rectangle {
+                    anchors.horizontalCenter:
+                        parent.horizontalCenter
+
+                    anchors.bottom:
+                        parent.bottom
+
+                    anchors.bottomMargin:
+                        activeApps.indicatorBottomMargin
+
+                    width:
+                        modelData.activated
+                        ? activeApps.indicatorWidth
+                        : 0
+
+                    height:
+                        activeApps.indicatorHeight
+
+                    radius:
+                        activeApps.indicatorHeight / 2
+
+                    color:
+                        activeApps.indicatorColor
+
+                    Behavior on width {
+                        NumberAnimation {
+                            duration:
+                                activeApps.indicatorAnimationDuration
+                        }
+                    }
+                }
+
+                // ====================================================
+                // INTERAÇÃO
+                // ====================================================
+
+                MouseArea {
+                    id: mouseArea
+
+                    anchors.fill:
+                        parent
+
+                    hoverEnabled:
+                        true
+
+                    onClicked: {
+                        if (modelData.wayland) {
+                            modelData.wayland.activate()
+                        }
+                    }
+                }
+
+                // ====================================================
+                // ANIMAÇÃO DA CÁPSULA
+                // ====================================================
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration:
+                            activeApps.colorAnimationDuration
+                    }
+                }
+            }
+    }
+}

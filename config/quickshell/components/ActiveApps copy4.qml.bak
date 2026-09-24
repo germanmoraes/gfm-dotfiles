@@ -1,0 +1,677 @@
+import Quickshell
+import Quickshell.Hyprland
+import Quickshell.Widgets
+import QtQuick
+
+Item {
+    id: activeApps
+
+    // ============================================================
+    // CONFIGURAÇÃO
+    // ============================================================
+
+    readonly property int itemSize:
+        32
+
+    readonly property int itemRadius:
+        16
+
+    readonly property int itemSpacing:
+        4
+
+    readonly property int iconSize:
+        18
+
+    readonly property int indicatorWidth:
+        14
+
+    readonly property int indicatorHeight:
+        2
+
+    readonly property int indicatorBottomMargin:
+        4
+
+    // ============================================================
+    // CORES
+    // ============================================================
+
+    readonly property color normalColor:
+        "#000000"
+
+    readonly property color hoverColor:
+        "#303030"
+
+    readonly property color indicatorColor:
+        "#707070"
+
+    readonly property color popupColor:
+        "#18181c"
+
+    readonly property color popupBorderColor:
+        "#29252f"
+
+    readonly property color popupItemColor:
+        "transparent"
+
+    readonly property color popupItemHoverColor:
+        "#303030"
+
+    readonly property color popupTextColor:
+        "#e6e6e6"
+
+    readonly property color popupSecondaryTextColor:
+        "#8b8b92"
+
+    // ============================================================
+    // GEOMETRIA DO MENU
+    // ============================================================
+
+    readonly property int popupWidth:
+        300
+
+    readonly property int popupItemHeight:
+        38
+
+    readonly property int popupRadius:
+        10
+
+    readonly property int popupPadding:
+        6
+
+    // ============================================================
+    // ANIMAÇÃO
+    // ============================================================
+
+    readonly property int colorAnimationDuration:
+        150
+
+    readonly property int indicatorAnimationDuration:
+        150
+
+    // ============================================================
+    // ESTADO
+    // ============================================================
+
+    property var selectedGroup:
+        null
+
+    property Item selectedItem:
+        null
+
+    // ============================================================
+    // AGRUPAMENTO DAS JANELAS
+    // ============================================================
+
+    function applicationId(toplevel) {
+        if (!toplevel || !toplevel.wayland)
+            return ""
+
+        var appId =
+            toplevel.wayland.appId || ""
+
+        return appId
+    }
+
+    function applicationKey(toplevel, index) {
+        var appId =
+            applicationId(toplevel)
+
+        if (appId !== "")
+            return appId
+
+        var title =
+            toplevel.title || ""
+
+        if (title !== "")
+            return "__title__" + title
+
+        return "__window__" + index
+    }
+
+    function buildGroups() {
+        var result = []
+
+        for (var i = 0; i < Hyprland.toplevels.values.length; ++i) {
+            var toplevel =
+                Hyprland.toplevels.values[i]
+
+            if (!toplevel)
+                continue
+
+            var key =
+                applicationKey(toplevel, i)
+
+            var existing =
+                null
+
+            for (var j = 0; j < result.length; ++j) {
+                if (result[j].key === key) {
+                    existing = result[j]
+                    break
+                }
+            }
+
+            if (existing) {
+                existing.windows.push(toplevel)
+            } else {
+                result.push({
+                    key: key,
+                    appId: applicationId(toplevel),
+                    windows: [toplevel]
+                })
+            }
+        }
+
+        return result
+    }
+
+    // ============================================================
+    // MODELO
+    // ============================================================
+
+    ScriptModel {
+        id: applicationModel
+
+        values: activeApps.buildGroups()
+    }
+
+    // ============================================================
+    // LARGURA
+    // ============================================================
+
+    implicitWidth:
+        applicationRow.implicitWidth
+
+    implicitHeight:
+        itemSize
+
+    // ============================================================
+    // APLICAÇÕES
+    // ============================================================
+
+    Row {
+        id: applicationRow
+
+        spacing:
+            activeApps.itemSpacing
+
+        Repeater {
+            model:
+                applicationModel
+
+            delegate:
+                Rectangle {
+                    required property var modelData
+
+                    width:
+                        activeApps.itemSize
+
+                    height:
+                        activeApps.itemSize
+
+                    radius:
+                        activeApps.itemRadius
+
+                    color:
+                        mouseArea.containsMouse
+                        ? activeApps.hoverColor
+                        : activeApps.normalColor
+
+                    // ====================================================
+                    // JANELA ATIVA DO GRUPO
+                    // ====================================================
+
+                    property var activeWindow: {
+                        var windows =
+                            modelData.windows
+
+                        for (var i = 0; i < windows.length; ++i) {
+                            if (windows[i].activated)
+                                return windows[i]
+                        }
+
+                        return windows.length > 0
+                            ? windows[0]
+                            : null
+                    }
+
+                    // ====================================================
+                    // ÍCONE
+                    // ====================================================
+
+                    IconImage {
+                        id: appIcon
+
+                        anchors.centerIn:
+                            parent
+
+                        width:
+                            activeApps.iconSize
+
+                        height:
+                            activeApps.iconSize
+
+                        source: {
+                            var appId =
+                                modelData.appId
+
+                            if (appId === "dev.zed.Zed") {
+                                return Quickshell.iconPath(
+                                    "zed",
+                                    true
+                                )
+                            }
+
+                            if (appId !== "") {
+                                return Quickshell.iconPath(
+                                    appId,
+                                    true
+                                )
+                            }
+
+                            return ""
+                        }
+                    }
+
+                    // ====================================================
+                    // INDICADOR DE APLICAÇÃO ATIVA
+                    // ====================================================
+
+                    Rectangle {
+                        anchors.horizontalCenter:
+                            parent.horizontalCenter
+
+                        anchors.bottom:
+                            parent.bottom
+
+                        anchors.bottomMargin:
+                            activeApps.indicatorBottomMargin
+
+                        width:
+                            activeWindow &&
+                            activeWindow.activated
+                            ? activeApps.indicatorWidth
+                            : 0
+
+                        height:
+                            activeApps.indicatorHeight
+
+                        radius:
+                            activeApps.indicatorHeight / 2
+
+                        color:
+                            activeApps.indicatorColor
+
+                        Behavior on width {
+                            NumberAnimation {
+                                duration:
+                                    activeApps.indicatorAnimationDuration
+                            }
+                        }
+                    }
+
+                    // ====================================================
+                    // INTERAÇÃO
+                    // ====================================================
+
+                    MouseArea {
+                        id: mouseArea
+
+                        anchors.fill:
+                            parent
+
+                        hoverEnabled:
+                            true
+
+                        onClicked: {
+
+                            var windows =
+                                modelData.windows
+
+                            // --------------------------------------------
+                            // UMA ÚNICA JANELA
+                            // --------------------------------------------
+
+                            if (windows.length === 1) {
+
+                                if (windows[0].wayland) {
+                                    windows[0].wayland.activate()
+                                }
+
+                                return
+                            }
+
+                            // --------------------------------------------
+                            // VÁRIAS JANELAS
+                            // --------------------------------------------
+
+                            activeApps.selectedGroup =
+                                modelData
+
+                            activeApps.selectedItem =
+                                parent
+
+                            windowSelector.visible =
+                                true
+                        }
+                    }
+
+                    // ====================================================
+                    // ANIMAÇÃO
+                    // ====================================================
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration:
+                                activeApps.colorAnimationDuration
+                        }
+                    }
+
+                    // ====================================================
+                    // QUANTIDADE DE JANELAS
+                    // ====================================================
+
+                    Rectangle {
+                        visible:
+                            modelData.windows.length > 1
+
+                        anchors {
+                            right:
+                                parent.right
+
+                            top:
+                                parent.top
+
+                            rightMargin:
+                                2
+
+                            topMargin:
+                                2
+                        }
+
+                        width:
+                            12
+
+                        height:
+                            12
+
+                        radius:
+                            6
+
+                        color:
+                            "#707070"
+
+                        Text {
+                            anchors.centerIn:
+                                parent
+
+                            text:
+                                modelData.windows.length
+
+                            color:
+                                "#ffffff"
+
+                            font.pixelSize:
+                                8
+
+                            font.family:
+                                "JetBrainsMono Nerd Font"
+
+                            horizontalAlignment:
+                                Text.AlignHCenter
+
+                            verticalAlignment:
+                                Text.AlignVCenter
+                        }
+                    }
+                }
+        }
+    }
+
+    // ============================================================
+    // SELETOR DE JANELAS
+    // ============================================================
+
+    PopupWindow {
+        id: windowSelector
+
+        visible:
+            false
+
+        width:
+            activeApps.popupWidth
+
+        implicitHeight:
+            Math.min(
+                420,
+                activeApps.popupPadding * 2 +
+                (
+                    activeApps.selectedGroup
+                    ? activeApps.selectedGroup.windows.length
+                    : 0
+                ) *
+                activeApps.popupItemHeight
+            )
+
+        color:
+            "transparent"
+
+        anchor.item:
+            activeApps.selectedItem
+
+        anchor.edges:
+            Edges.Bottom | Edges.Left
+
+        anchor.gravity:
+            Edges.Bottom | Edges.Right
+
+        grabFocus:
+            true
+
+        Rectangle {
+            anchors.fill:
+                parent
+
+            radius:
+                activeApps.popupRadius
+
+            color:
+                activeApps.popupColor
+
+            border.color:
+                activeApps.popupBorderColor
+
+            border.width:
+                1
+
+            Column {
+                anchors.fill:
+                    parent
+
+                anchors.margins:
+                    activeApps.popupPadding
+
+                spacing:
+                    2
+
+                Repeater {
+                    model:
+                        activeApps.selectedGroup
+                        ? activeApps.selectedGroup.windows
+                        : []
+
+                    delegate:
+                        Rectangle {
+                            required property var modelData
+
+                            width:
+                                parent.width
+
+                            height:
+                                activeApps.popupItemHeight
+
+                            radius:
+                                7
+
+                            color:
+                                windowMouseArea.containsMouse
+                                ? activeApps.popupItemHoverColor
+                                : activeApps.popupItemColor
+
+                            IconImage {
+                                id: windowIcon
+
+                                anchors {
+                                    left:
+                                        parent.left
+
+                                    leftMargin:
+                                        8
+
+                                    verticalCenter:
+                                        parent.verticalCenter
+                                }
+
+                                width:
+                                    20
+
+                                height:
+                                    20
+
+                                source: {
+                                    var appId = ""
+
+                                    if (modelData.wayland) {
+                                        appId =
+                                            modelData.wayland.appId ||
+                                            ""
+                                    }
+
+                                    if (appId === "dev.zed.Zed") {
+                                        return Quickshell.iconPath(
+                                            "zed",
+                                            true
+                                        )
+                                    }
+
+                                    if (appId !== "") {
+                                        return Quickshell.iconPath(
+                                            appId,
+                                            true
+                                        )
+                                    }
+
+                                    return ""
+                                }
+                            }
+
+                            Text {
+                                anchors {
+                                    left:
+                                        windowIcon.right
+
+                                    leftMargin:
+                                        10
+
+                                    right:
+                                        parent.right
+
+                                    rightMargin:
+                                        8
+
+                                    verticalCenter:
+                                        parent.verticalCenter
+                                }
+
+                                text:
+                                    modelData.title ||
+                                    "Janela"
+
+                                color:
+                                    modelData.activated
+                                    ? activeApps.popupTextColor
+                                    : activeApps.popupSecondaryTextColor
+
+                                font.family:
+                                    "JetBrainsMono Nerd Font"
+
+                                font.pixelSize:
+                                    11
+
+                                elide:
+                                    Text.ElideRight
+                            }
+
+                            MouseArea {
+                                id: windowMouseArea
+
+                                anchors.fill:
+                                    parent
+
+                                hoverEnabled:
+                                    true
+
+                                onClicked: {
+
+                                    if (modelData.wayland) {
+                                        modelData.wayland.activate()
+                                    }
+
+                                    windowSelector.visible =
+                                        false
+                                }
+                            }
+                        }
+                }
+            }
+        }
+    }
+
+    // ============================================================
+    // ATUALIZAÇÃO DO MODELO
+    // ============================================================
+
+    Timer {
+        interval:
+            250
+
+        running:
+            true
+
+        repeat:
+            true
+
+        onTriggered: {
+            applicationModel.values =
+                activeApps.buildGroups()
+
+            if (windowSelector.visible &&
+                activeApps.selectedGroup) {
+
+                var selectedKey =
+                    activeApps.selectedGroup.key
+
+                var groups =
+                    activeApps.buildGroups()
+
+                var found =
+                    null
+
+                for (var i = 0; i < groups.length; ++i) {
+                    if (groups[i].key === selectedKey) {
+                        found = groups[i]
+                        break
+                    }
+                }
+
+                if (found) {
+                    activeApps.selectedGroup =
+                        found
+                } else {
+                    windowSelector.visible =
+                        false
+                }
+            }
+        }
+    }
+}

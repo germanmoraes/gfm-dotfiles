@@ -1,0 +1,650 @@
+import Quickshell
+import Quickshell.Io
+import Quickshell.Bluetooth
+import Quickshell.Networking
+import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
+import QtQuick
+
+Item {
+    id: systemControls
+
+    implicitWidth: statusRow.implicitWidth + 28
+    implicitHeight: 36
+
+    signal settingsRequested()
+
+    property string networkState: "none"
+    property int wifiSignal: 0
+
+    readonly property var bluetoothAdapter:
+        Bluetooth.defaultAdapter
+
+    readonly property bool bluetoothAvailable:
+        bluetoothAdapter !== null
+
+    readonly property bool bluetoothEnabled:
+        bluetoothAdapter !== null &&
+        bluetoothAdapter.enabled
+
+    property int bluetoothConnected: 0
+
+    readonly property var audioSink:
+        Pipewire.defaultAudioSink
+
+    property bool audioAvailable: false
+    property bool audioMuted: false
+    property real audioLevel: 0.0
+
+    property bool batteryAvailable: false
+    property int batteryLevel: 0
+
+    property bool brightnessAvailable: false
+    property int brightnessLevel: 0
+
+    PwObjectTracker {
+        id: audioTracker
+
+        objects: [
+            systemControls.audioSink
+        ]
+    }
+
+    Process {
+        id: networkProcess
+
+        command: [
+            "sh",
+            "-c",
+            "nmcli -t -f TYPE,STATE,SIGNAL device 2>/dev/null | "
+            + "awk -F: '"
+            + "BEGIN { wired=0; wifi=-1 } "
+            + "$1==\"ethernet\" && $2==\"connected\" { wired=1 } "
+            + "$1==\"wifi\" && $2==\"connected\" { wifi=$3 } "
+            + "END { "
+            + "if (wired) print \"wired\"; "
+            + "else if (wifi>=0) print \"wifi:\" wifi; "
+            + "else print \"none\" "
+            + "}'"
+        ]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var result = this.text.trim()
+
+                if (result === "wired") {
+                    systemControls.networkState = "wired"
+                    systemControls.wifiSignal = 0
+                    return
+                }
+
+                if (result.indexOf("wifi:") === 0) {
+                    var value = parseInt(
+                        result.substring(5)
+                    )
+
+                    systemControls.networkState = "wifi"
+
+                    systemControls.wifiSignal =
+                        isNaN(value)
+                        ? 0
+                        : Math.max(
+                            0,
+                            Math.min(100, value)
+                        )
+
+                    return
+                }
+
+                systemControls.networkState = "none"
+                systemControls.wifiSignal = 0
+            }
+        }
+    }
+
+    Timer {
+        id: batteryTimer
+
+        interval: 2000
+        running: true
+        repeat: true
+
+        onTriggered: {
+            systemControls.updateBattery()
+        }
+    }
+
+    function updateBattery() {
+        var devices =
+            UPower.devices.values
+
+        var found = false
+
+        for (var i = 0; i < devices.length; ++i) {
+            var device = devices[i]
+
+            if (device.isLaptopBattery &&
+                device.isPresent) {
+
+                systemControls.batteryAvailable = true
+
+                systemControls.batteryLevel =
+                    Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            Math.round(device.percentage)
+                        )
+                    )
+
+                found = true
+                break
+            }
+        }
+
+        if (!found) {
+            systemControls.batteryAvailable = false
+            systemControls.batteryLevel = 0
+        }
+    }
+
+    Process {
+        id: brightnessProcess
+
+        command: [
+            "sh",
+            "-c",
+            "for d in /sys/class/backlight/*; do "
+            + "[ -d \"$d\" ] || continue; "
+            + "name=$(basename \"$d\"); "
+            + "case \"$name\" in "
+            + "acpi_video*|virtual*) continue ;; "
+            + "esac; "
+            + "max=$(cat \"$d/max_brightness\" 2>/dev/null); "
+            + "cur=$(cat \"$d/actual_brightness\" 2>/dev/null); "
+            + "[ -n \"$max\" ] && [ -n \"$cur\" ] || continue; "
+            + "echo \"$cur:$max\"; "
+            + "exit 0; "
+            + "done; "
+            + "echo none"
+        ]
+
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var result = this.text.trim()
+
+                if (!result || result === "none") {
+                    systemControls.brightnessAvailable = false
+                    systemControls.brightnessLevel = 0
+                    return
+                }
+
+                var fields = result.split(":")
+
+                if (fields.length !== 2) {
+                    systemControls.brightnessAvailable = false
+                    systemControls.brightnessLevel = 0
+                    return
+                }
+
+                var current = parseInt(fields[0])
+                var maximum = parseInt(fields[1])
+
+                if (isNaN(current) ||
+                    isNaN(maximum) ||
+                    maximum <= 0) {
+
+                    systemControls.brightnessAvailable = false
+                    systemControls.brightnessLevel = 0
+                    return
+                }
+
+                systemControls.brightnessAvailable = true
+
+                systemControls.brightnessLevel =
+                    Math.max(
+                        0,
+                        Math.min(
+                            100,
+                            Math.round(
+                                current * 100 / maximum
+                            )
+                        )
+                    )
+            }
+        }
+    }
+
+    function updateBluetooth() {
+        var devices =
+            Bluetooth.devices.values
+
+        var connected = 0
+
+        for (var i = 0; i < devices.length; ++i) {
+            var device = devices[i]
+
+            if (device.connected)
+                connected++
+        }
+
+        systemControls.bluetoothConnected = connected
+    }
+
+    Timer {
+        id: updateTimer
+
+        interval: 1000
+        running: true
+        repeat: true
+
+        onTriggered: {
+            networkProcess.running = false
+            networkProcess.running = true
+
+            brightnessProcess.running = false
+            brightnessProcess.running = true
+
+            systemControls.updateBluetooth()
+            systemControls.updateAudio()
+        }
+    }
+
+    Connections {
+        target: systemControls.audioSink
+
+        function onAudioChanged() {
+            systemControls.updateAudio()
+        }
+
+        function onReadyChanged() {
+            systemControls.updateAudio()
+        }
+    }
+
+    Connections {
+        target:
+            systemControls.audioSink
+            ? systemControls.audioSink.audio
+            : null
+
+        function onVolumeChanged() {
+            systemControls.updateAudio()
+        }
+
+        function onMutedChanged() {
+            systemControls.updateAudio()
+        }
+    }
+
+    Connections {
+        target: Pipewire
+
+        function onDefaultAudioSinkChanged() {
+            systemControls.updateAudio()
+        }
+    }
+
+    function updateAudio() {
+        var sink = systemControls.audioSink
+
+        if (!sink ||
+            !sink.audio ||
+            !sink.ready) {
+
+            systemControls.audioAvailable = false
+            systemControls.audioMuted = false
+            systemControls.audioLevel = 0
+            return
+        }
+
+        systemControls.audioAvailable = true
+
+        systemControls.audioLevel =
+            Math.max(
+                0,
+                Math.min(
+                    1,
+                    sink.audio.volume
+                )
+            )
+
+        systemControls.audioMuted =
+            sink.audio.muted
+    }
+
+    Component.onCompleted: {
+        networkProcess.running = true
+        brightnessProcess.running = true
+
+        updateAudio()
+        updateBluetooth()
+        updateBattery()
+    }
+
+    Rectangle {
+        id: capsule
+
+        anchors.fill: parent
+
+        radius: 18
+
+        color: "#e6151518"
+
+        border.width: 1
+        border.color: "#29252f"
+
+        MouseArea {
+            anchors.fill: parent
+
+            onClicked: {
+                systemPopup.visible =
+                    !systemPopup.visible
+            }
+        }
+
+        Row {
+            id: statusRow
+
+            anchors.centerIn: parent
+
+            spacing: 12
+
+            // REDE
+            Item {
+                width: 18
+                height: 20
+
+                Text {
+                    anchors.centerIn: parent
+
+                    text: "\ue63e"
+
+                    color:
+                        systemControls.networkState === "none"
+                        ? "#666666"
+                        : "#00e5ff"
+
+                    font.family:
+                        "Material Symbols Rounded"
+
+                    font.pixelSize: 18
+                }
+
+                Text {
+                    visible:
+                        systemControls.networkState === "none"
+
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+
+                    text: "\ue5c9"
+
+                    color: "#666666"
+
+                    font.family:
+                        "Material Symbols Rounded"
+
+                    font.pixelSize: 10
+                }
+
+                Text {
+                    visible:
+                        systemControls.networkState === "wired"
+
+                    anchors.centerIn: parent
+
+                    text: "\ue8d4"
+
+                    color: "#00e5ff"
+
+                    font.family:
+                        "Material Symbols Rounded"
+
+                    font.pixelSize: 18
+                }
+            }
+
+            // BLUETOOTH
+            Row {
+                spacing: 3
+
+                Text {
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text:
+                        systemControls.bluetoothConnected > 0
+                        ? "\ue1a8"
+                        : "\ue1a7"
+
+                    color:
+                        systemControls.bluetoothEnabled
+                        ? "#00aaff"
+                        : "#666666"
+
+                    font.family:
+                        "Material Symbols Rounded"
+
+                    font.pixelSize: 18
+                }
+
+                Text {
+                    visible:
+                        systemControls.bluetoothEnabled &&
+                        systemControls.bluetoothConnected > 0
+
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text:
+                        systemControls.bluetoothConnected.toString()
+
+                    color: "#00aaff"
+
+                    font.family:
+                        "sans-serif"
+
+                    font.pixelSize: 8
+                }
+            }
+
+            // ÁUDIO
+            Row {
+                spacing: 3
+
+                Text {
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text: {
+                        if (!systemControls.audioAvailable ||
+                            systemControls.audioMuted)
+                            return "\ue04f"
+
+                        if (systemControls.audioLevel >= 0.67)
+                            return "\ue050"
+
+                        if (systemControls.audioLevel >= 0.34)
+                            return "\ue04d"
+
+                        return "\ue04c"
+                    }
+
+                    color:
+                        !systemControls.audioAvailable ||
+                        systemControls.audioMuted
+                        ? "#666666"
+                        : "#ff79c6"
+
+                    font.family:
+                        "Material Symbols Rounded"
+
+                    font.pixelSize: 18
+                }
+
+                Text {
+                    visible:
+                        systemControls.audioAvailable
+
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text:
+                        Math.round(
+                            systemControls.audioLevel * 100
+                        ) + "%"
+
+                    color:
+                        !systemControls.audioAvailable ||
+                        systemControls.audioMuted
+                        ? "#666666"
+                        : "#ff79c6"
+
+                    font.family:
+                        "sans-serif"
+
+                    font.pixelSize: 8
+                }
+            }
+
+            // BATERIA
+            Row {
+                visible:
+                    systemControls.batteryAvailable
+
+                spacing: 3
+
+                Text {
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text: {
+                        if (systemControls.batteryLevel <= 10)
+                            return "\uebdc"
+
+                        if (systemControls.batteryLevel <= 25)
+                            return "\uebd9"
+
+                        if (systemControls.batteryLevel <= 50)
+                            return "\uebdd"
+
+                        if (systemControls.batteryLevel <= 75)
+                            return "\uebe2"
+
+                        return "\ue1a4"
+                    }
+
+                    color: {
+                        if (systemControls.batteryLevel <= 20)
+                            return "#ff5555"
+
+                        if (systemControls.batteryLevel <= 40)
+                            return "#ffb86c"
+
+                        return "#50fa7b"
+                    }
+
+                    font.family:
+                        "Material Symbols Rounded"
+
+                    font.pixelSize: 18
+                }
+
+                Text {
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text:
+                        systemControls.batteryLevel + "%"
+
+                    color: {
+                        if (systemControls.batteryLevel <= 20)
+                            return "#ff5555"
+
+                        if (systemControls.batteryLevel <= 40)
+                            return "#ffb86c"
+
+                        return "#50fa7b"
+                    }
+
+                    font.family:
+                        "sans-serif"
+
+                    font.pixelSize: 8
+                }
+            }
+
+            // BRILHO
+            Row {
+                visible:
+                    systemControls.brightnessAvailable
+
+                spacing: 3
+
+                Text {
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text: {
+                        if (systemControls.brightnessLevel >= 67)
+                            return "\ue1ac"
+
+                        if (systemControls.brightnessLevel >= 34)
+                            return "\ue1ae"
+
+                        return "\ue1ad"
+                    }
+
+                    color: "#f1fa8c"
+
+                    font.family:
+                        "Material Symbols Rounded"
+
+                    font.pixelSize: 18
+                }
+
+                Text {
+                    anchors.verticalCenter:
+                        parent.verticalCenter
+
+                    text:
+                        systemControls.brightnessLevel + "%"
+
+                    color: "#f1fa8c"
+
+                    font.family:
+                        "sans-serif"
+
+                    font.pixelSize: 8
+                }
+            }
+
+            // POWER
+            Text {
+                anchors.verticalCenter:
+                    parent.verticalCenter
+
+                text: "\ue8ac"
+
+                color: "#ff5555"
+
+                font.family:
+                    "Material Symbols Rounded"
+
+                font.pixelSize: 18
+            }
+        }
+    }
+
+    SystemPopup {
+        id: systemPopup
+
+        systemControlsAnchor:
+            systemControls
+
+        onSettingsRequested: {
+            systemControls.settingsRequested()
+        }
+    }
+}

@@ -1,0 +1,249 @@
+import Quickshell
+import Quickshell.Io
+import QtQuick
+
+Item {
+    id: root
+
+    property real cpuUsage: 0
+    property real gpuUsage: 0
+    property real memoryUsage: 0
+
+    property string downloadSpeed: "0 B/s"
+    property string uploadSpeed: "0 B/s"
+
+    property real memoryUsed: 0
+    property real memoryTotal: 0
+
+    property real gpuMemoryUsed: 0
+    property real gpuMemoryTotal: 0
+    property real gpuMemoryUsage: 0
+
+    property real cpuLoad1: 0
+    property real cpuLoad5: 0
+    property real cpuLoad15: 0
+
+    property real gpuMemoryBusy: 0
+    property real gpuClock: 0
+    property real gpuPower: 0
+
+    property var cpuThreads: []
+    property var cpuHistory: []
+    property var memoryHistory: []
+    property var gpuHistory: []
+    property var downloadHistory: []
+    property var uploadHistory: []
+
+    readonly property string scriptPath:
+        Quickshell.env("HOME") + "/.config/quickshell/services/system-monitor.sh"
+
+    function addHistory(array, value, maximum) {
+        var result = array.slice()
+
+        result.push(value)
+
+        while (result.length > maximum)
+            result.shift()
+
+        return result
+    }
+
+    function parseLine(line) {
+        if (!line || line.length === 0)
+            return
+
+        var parts = line.split("|")
+
+        if (parts.length === 0)
+            return
+
+        var type = parts[0]
+
+        if (type === "CPU") {
+            if (parts.length < 2)
+                return
+
+            var threads = parts[1].split(",")
+
+            var values = []
+
+            for (var i = 0; i < threads.length; i++) {
+                var value = parseFloat(threads[i])
+
+                if (!isNaN(value))
+                    values.push(value)
+            }
+
+            root.cpuThreads = values
+
+            if (values.length > 0) {
+                var total = 0
+
+                for (var j = 0; j < values.length; j++)
+                    total += values[j]
+
+                root.cpuUsage = total / values.length
+            }
+
+            root.cpuHistory =
+                addHistory(root.cpuHistory, root.cpuUsage, 120)
+
+            return
+        }
+
+        if (type === "MEM") {
+            if (parts.length < 5)
+                return
+
+            var used = parseFloat(parts[1])
+            var totalMemory = parseFloat(parts[2])
+            var swapUsed = parseFloat(parts[3])
+            var swapTotal = parseFloat(parts[4])
+
+            if (isNaN(used))
+                used = 0
+
+            if (isNaN(totalMemory))
+                totalMemory = 0
+
+            if (isNaN(swapUsed))
+                swapUsed = 0
+
+            if (isNaN(swapTotal))
+                swapTotal = 0
+
+            root.memoryUsed = used
+            root.memoryTotal = totalMemory
+
+            if (totalMemory > 0)
+                root.memoryUsage = (used / totalMemory) * 100
+            else
+                root.memoryUsage = 0
+
+            root.memoryHistory =
+                addHistory(root.memoryHistory, root.memoryUsage, 120)
+
+            return
+        }
+
+        if (type === "NET") {
+            if (parts.length < 5)
+                return
+
+            var down = parseFloat(parts[1])
+            var up = parseFloat(parts[2])
+
+            if (isNaN(down))
+                down = 0
+
+            if (isNaN(up))
+                up = 0
+
+            root.downloadSpeed = formatSpeed(down)
+            root.uploadSpeed = formatSpeed(up)
+
+            root.downloadHistory =
+                addHistory(root.downloadHistory, down, 120)
+
+            root.uploadHistory =
+                addHistory(root.uploadHistory, up, 120)
+
+            return
+        }
+
+        if (type === "GPU") {
+            if (parts.length < 9)
+                return
+
+            var busy = parseFloat(parts[1])
+            var memoryBusy = parseFloat(parts[2])
+            var vramUsed = parseFloat(parts[3])
+            var vramTotal = parseFloat(parts[4])
+            var gttUsed = parseFloat(parts[5])
+            var gttTotal = parseFloat(parts[6])
+            var clock = parseFloat(parts[7])
+            var power = parseFloat(parts[8])
+
+            if (isNaN(busy))
+                busy = 0
+
+            if (isNaN(memoryBusy))
+                memoryBusy = 0
+
+            if (isNaN(vramUsed))
+                vramUsed = 0
+
+            if (isNaN(vramTotal))
+                vramTotal = 0
+
+            if (isNaN(gttUsed))
+                gttUsed = 0
+
+            if (isNaN(gttTotal))
+                gttTotal = 0
+
+            if (isNaN(clock))
+                clock = 0
+
+            if (isNaN(power))
+                power = 0
+
+            root.gpuUsage = busy
+            root.gpuMemoryBusy = memoryBusy
+
+            root.gpuMemoryUsed = vramUsed
+            root.gpuMemoryTotal = vramTotal
+
+            if (vramTotal > 0)
+                root.gpuMemoryUsage =
+                    (vramUsed / vramTotal) * 100
+            else
+                root.gpuMemoryUsage = 0
+
+            root.gpuClock = clock
+            root.gpuPower = power
+
+            root.gpuHistory =
+                addHistory(root.gpuHistory, root.gpuUsage, 120)
+
+            return
+        }
+    }
+
+    function formatSpeed(bytesPerSecond) {
+        if (bytesPerSecond < 1024)
+            return Math.round(bytesPerSecond) + " B/s"
+
+        if (bytesPerSecond < 1024 * 1024)
+            return (bytesPerSecond / 1024).toFixed(1) + " KB/s"
+
+        if (bytesPerSecond < 1024 * 1024 * 1024)
+            return (bytesPerSecond / (1024 * 1024)).toFixed(1) + " MB/s"
+
+        return (bytesPerSecond / (1024 * 1024 * 1024)).toFixed(1) + " GB/s"
+    }
+
+    Process {
+        id: monitorProcess
+
+        command: [
+            "bash",
+            root.scriptPath
+        ]
+
+        running: true
+
+        stdout: SplitParser {
+            splitMarker: "\n"
+
+            onRead: function(data) {
+                root.parseLine(data.trim())
+            }
+        }
+    }
+
+    Component.onDestruction: {
+        if (monitorProcess.running)
+            monitorProcess.running = false
+    }
+}

@@ -1,0 +1,1271 @@
+import Quickshell
+import Quickshell.Io
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import Qt.labs.folderlistmodel
+import Qt.labs.platform
+import QtMultimedia
+
+PopupWindow {
+    id: manager
+
+    // ============================================================
+    // CONFIGURAÇÃO GERAL
+    // ============================================================
+
+    property string wallpaperDirectory:
+        "/home/germano/Imagens/Wallpapers"
+
+    property string thumbnailDirectory:
+        "/home/germano/.cache/quickshell/wallpaper-thumbnails"
+
+    property string monitorName:
+        "HDMI-A-1"
+
+    property int windowWidth:
+        920
+
+    property int windowHeight:
+        680
+
+    // ============================================================
+    // CORES
+    // ============================================================
+
+    property color windowColor:
+        "#e9141418"
+
+    property color panelColor:
+        "#d91b1b21"
+
+    property color cardColor:
+        "#b5222229"
+
+    property color cardHoverColor:
+        "#d52d2d36"
+
+    property color cardSelectedColor:
+        "#d63b3948"
+
+    property color borderColor:
+        "#352f3a"
+
+    property color borderSelectedColor:
+        "#6c63ff"
+
+    property color primaryTextColor:
+        "#f0eef5"
+
+    property color secondaryTextColor:
+        "#96929f"
+
+    property color mutedTextColor:
+        "#6f6b76"
+
+    property color accentColor:
+        "#8b7cff"
+
+    property color accentTextColor:
+        "#ffffff"
+
+    // ============================================================
+    // DIMENSÕES
+    // ============================================================
+
+    property int outerMargin:
+        20
+
+    property int headerHeight:
+        64
+
+    property int footerHeight:
+        64
+
+    property int gridSpacing:
+        14
+
+    property int cardWidth:
+        164
+
+    property int cardHeight:
+        132
+
+    property int cardRadius:
+        12
+
+    property int thumbnailHeight:
+        94
+
+    property int contentRadius:
+        16
+
+    // ============================================================
+    // ANCORAGEM
+    // ============================================================
+
+    visible:
+        false
+
+    grabFocus:
+        false
+
+    implicitWidth:
+        manager.windowWidth
+
+    implicitHeight:
+        manager.windowHeight
+
+    color:
+        "transparent"
+
+    anchor.window:
+        barWindow
+
+    anchor.rect.x:
+        (barWindow.width - manager.windowWidth) / 2
+
+    anchor.rect.y:
+        barWindow.height + 12
+
+    property var barWindow
+
+    // ============================================================
+    // TIPOS DE MÍDIA
+    // ============================================================
+
+    function extension(path) {
+        var name = path.toLowerCase()
+        var dot = name.lastIndexOf(".")
+
+        if (dot < 0)
+            return ""
+
+        return name.substring(dot + 1)
+    }
+
+    function isStatic(path) {
+        var ext = extension(path)
+
+        return [
+            "jpg",
+            "jpeg",
+            "png",
+            "webp",
+            "bmp"
+        ].indexOf(ext) !== -1
+    }
+
+    function isGif(path) {
+        return extension(path) === "gif"
+    }
+
+    function isVideo(path) {
+        var ext = extension(path)
+
+        return [
+            "mp4",
+            "mkv",
+            "webm",
+            "mov",
+            "avi"
+        ].indexOf(ext) !== -1
+    }
+
+    function isAnimated(path) {
+        return isGif(path) || isVideo(path)
+    }
+
+    function videoThumbnailPath(path) {
+        var fileName =
+            path.substring(path.lastIndexOf("/") + 1)
+
+        return manager.thumbnailDirectory +
+            "/" +
+            fileName +
+            ".jpg"
+    }
+
+    // ============================================================
+    // BACKEND DO WALLPAPER
+    // ============================================================
+
+    Process {
+        id: wallpaperProcess
+
+        command:
+            []
+
+        running:
+            false
+
+        stderr: SplitParser {
+            onRead: function(data) {
+                console.warn("Wallpaper:", data)
+            }
+        }
+    }
+
+    function stopWallpaperBackends() {
+        wallpaperProcess.running = false
+    }
+
+    function modeForSwaybg(mode) {
+        if (mode === "Preencher")
+            return "fill"
+
+        if (mode === "Ajustar")
+            return "fit"
+
+        if (mode === "Esticar")
+            return "stretch"
+
+        return "center"
+    }
+
+    function applyWallpaper(path) {
+        if (!path || path === "")
+            return
+
+        selectedWallpaper =
+            path
+
+        wallpaperProcess.running =
+            false
+
+        if (isStatic(path)) {
+            wallpaperProcess.exec([
+                "swaybg",
+                "-o",
+                manager.monitorName,
+                "-i",
+                path,
+                "-m",
+                modeForSwaybg(manager.displayMode)
+            ])
+
+            return
+        }
+
+        wallpaperProcess.exec([
+            "mpvpaper",
+            "-l",
+            "background",
+            "-o",
+            "--loop-file=inf",
+            manager.monitorName,
+            path
+        ])
+    }
+
+    // ============================================================
+    // MODELO DE WALLPAPERS
+    // ============================================================
+
+    FolderListModel {
+        id: wallpaperModel
+
+        folder:
+            "file://" + manager.wallpaperDirectory
+
+        showDirs:
+            false
+
+        showFiles:
+            true
+
+        nameFilters: [
+            "*.jpg",
+            "*.jpeg",
+            "*.png",
+            "*.webp",
+            "*.bmp",
+            "*.gif",
+            "*.mp4",
+            "*.mkv",
+            "*.webm",
+            "*.mov",
+            "*.avi"
+        ]
+
+        sortField:
+            FolderListModel.Name
+
+        sortReversed:
+            false
+    }
+
+    // ============================================================
+    // ESTADO
+    // ============================================================
+
+    property string selectedWallpaper:
+        ""
+
+    property string displayMode:
+        "Preencher"
+
+    // ============================================================
+    // FILA DE MINIATURAS DE VÍDEO
+    // ============================================================
+
+    property var thumbnailQueue:
+        []
+
+    property bool thumbnailGenerating:
+        false
+
+    function queueVideoThumbnail(path) {
+        if (!manager.isVideo(path))
+            return
+
+        if (manager.thumbnailQueue.indexOf(path) !== -1)
+            return
+
+        manager.thumbnailQueue.push(path)
+
+        manager.startNextThumbnail()
+    }
+
+    function startNextThumbnail() {
+        if (manager.thumbnailGenerating)
+            return
+
+        if (manager.thumbnailQueue.length === 0)
+            return
+
+        var path =
+            manager.thumbnailQueue.shift()
+
+        manager.thumbnailGenerating =
+            true
+
+        thumbnailProcess.exec([
+            "ffmpeg",
+            "-y",
+            "-ss",
+            "00:00:01",
+            "-i",
+            path,
+            "-frames:v",
+            "1",
+            "-q:v",
+            "3",
+            manager.videoThumbnailPath(path)
+        ])
+    }
+
+    Process {
+        id: thumbnailProcess
+
+        command:
+            []
+
+        running:
+            false
+
+        stderr: SplitParser {
+            onRead: function(data) {
+                console.warn(
+                    "Wallpaper thumbnail:",
+                    data
+                )
+            }
+        }
+
+        onExited: function(exitCode, exitStatus) {
+            manager.thumbnailGenerating =
+                false
+
+            wallpaperModel.reload()
+
+            manager.startNextThumbnail()
+        }
+    }
+
+    // ============================================================
+    // FILE DIALOG
+    // ============================================================
+
+    FileDialog {
+        id: fileDialog
+
+        title:
+            "Adicionar wallpaper"
+
+        fileMode:
+            FileDialog.OpenFile
+
+        nameFilters: [
+            "Wallpapers (*.jpg *.jpeg *.png *.webp *.bmp *.gif *.mp4 *.mkv *.webm *.mov *.avi)"
+        ]
+
+        onAccepted: {
+            if (files.length === 0)
+                return
+
+            var source =
+                files[0].toString()
+
+            source =
+                source.replace(/^file:\/\//, "")
+
+            Quickshell.execDetached([
+                "cp",
+                "--",
+                source,
+                manager.wallpaperDirectory + "/"
+            ])
+
+            var fileName =
+                source.substring(
+                    source.lastIndexOf("/") + 1
+                )
+
+            selectedWallpaper =
+                manager.wallpaperDirectory +
+                "/" +
+                fileName
+
+            wallpaperModel.reload()
+
+            applyWallpaper(
+                selectedWallpaper
+            )
+
+            if (manager.isVideo(selectedWallpaper)) {
+                manager.queueVideoThumbnail(
+                    selectedWallpaper
+                )
+            }
+        }
+    }
+
+    // ============================================================
+    // FECHAMENTO
+    // ============================================================
+
+    function closeManager() {
+        visible =
+            false
+    }
+
+    // ============================================================
+    // GERA MINIATURAS DOS VÍDEOS EXISTENTES
+    // ============================================================
+
+    Timer {
+        id: thumbnailScanTimer
+
+        interval:
+            300
+
+        repeat:
+            false
+
+        onTriggered: {
+            for (
+                var i = 0;
+                i < wallpaperModel.count;
+                i++
+            ) {
+                var path =
+                    wallpaperModel.get(
+                        i,
+                        "filePath"
+                    )
+
+                if (manager.isVideo(path))
+                    manager.queueVideoThumbnail(path)
+            }
+        }
+    }
+
+    onVisibleChanged: {
+        if (visible)
+            thumbnailScanTimer.restart()
+    }
+
+    // ============================================================
+    // ÁREA PRINCIPAL
+    // ============================================================
+
+    Rectangle {
+        id: background
+
+        anchors.fill:
+            parent
+
+        radius:
+            manager.contentRadius
+
+        color:
+            manager.windowColor
+
+        border.width:
+            1
+
+        border.color:
+            manager.borderColor
+
+        clip:
+            true
+
+        // ========================================================
+        // CABEÇALHO
+        // ========================================================
+
+        Rectangle {
+            id: header
+
+            anchors {
+                top: parent.top
+                left: parent.left
+                right: parent.right
+            }
+
+            height:
+                manager.headerHeight
+
+            color:
+                "transparent"
+
+            RowLayout {
+                anchors.fill:
+                    parent
+
+                anchors.leftMargin:
+                    manager.outerMargin
+
+                anchors.rightMargin:
+                    manager.outerMargin
+
+                spacing:
+                    14
+
+                ColumnLayout {
+                    Layout.fillWidth:
+                        true
+
+                    spacing:
+                        2
+
+                    Text {
+                        text:
+                            "Wallpaper"
+
+                        color:
+                            manager.primaryTextColor
+
+                        font.family:
+                            "JetBrains Mono"
+
+                        font.pixelSize:
+                            19
+
+                        font.bold:
+                            true
+                    }
+
+                    Text {
+                        text:
+                            wallpaperModel.count +
+                            " wallpapers disponíveis"
+
+                        color:
+                            manager.secondaryTextColor
+
+                        font.family:
+                            "JetBrains Mono"
+
+                        font.pixelSize:
+                            11
+                    }
+                }
+
+                ComboBox {
+                    id: modeCombo
+
+                    model: [
+                        "Preencher",
+                        "Ajustar",
+                        "Esticar",
+                        "Original"
+                    ]
+
+                    currentIndex:
+                        Math.max(
+                            0,
+                            model.indexOf(
+                                manager.displayMode
+                            )
+                        )
+
+                    implicitWidth:
+                        150
+
+                    implicitHeight:
+                        38
+
+                    onActivated: {
+                        manager.displayMode =
+                            currentText
+
+                        if (
+                            manager.selectedWallpaper !==
+                            ""
+                        ) {
+                            manager.applyWallpaper(
+                                manager.selectedWallpaper
+                            )
+                        }
+                    }
+
+                    background:
+                        Rectangle {
+                            radius:
+                                10
+
+                            color:
+                                manager.cardColor
+
+                            border.width:
+                                1
+
+                            border.color:
+                                manager.borderColor
+                        }
+
+                    contentItem:
+                        Text {
+                            text:
+                                modeCombo.currentText
+
+                            color:
+                                manager.primaryTextColor
+
+                            font.family:
+                                "JetBrains Mono"
+
+                            font.pixelSize:
+                                12
+
+                            verticalAlignment:
+                                Text.AlignVCenter
+
+                            leftPadding:
+                                12
+                        }
+                }
+
+                Button {
+                    text:
+                        "+ Adicionar"
+
+                    implicitWidth:
+                        120
+
+                    implicitHeight:
+                        38
+
+                    onClicked:
+                        fileDialog.open()
+
+                    background:
+                        Rectangle {
+                            radius:
+                                10
+
+                            color:
+                                manager.accentColor
+                        }
+
+                    contentItem:
+                        Text {
+                            text:
+                                parent.text
+
+                            color:
+                                manager.accentTextColor
+
+                            font.family:
+                                "JetBrains Mono"
+
+                            font.pixelSize:
+                                11
+
+                            font.bold:
+                                true
+
+                            horizontalAlignment:
+                                Text.AlignHCenter
+
+                            verticalAlignment:
+                                Text.AlignVCenter
+                        }
+                }
+            }
+        }
+
+        // ========================================================
+        // GRADE
+        // ========================================================
+
+        Rectangle {
+            id: gridPanel
+
+            anchors {
+                top: header.bottom
+                left: parent.left
+                right: parent.right
+                bottom: footer.top
+            }
+
+            anchors.margins:
+                manager.outerMargin
+
+            radius:
+                manager.contentRadius
+
+            color:
+                manager.panelColor
+
+            border.width:
+                1
+
+            border.color:
+                manager.borderColor
+
+            clip:
+                true
+
+            GridView {
+                id: wallpaperGrid
+
+                anchors.fill:
+                    parent
+
+                anchors.margins:
+                    14
+
+                cellWidth:
+                    manager.cardWidth +
+                    manager.gridSpacing
+
+                cellHeight:
+                    manager.cardHeight +
+                    manager.gridSpacing
+
+                model:
+                    wallpaperModel
+
+                clip:
+                    true
+
+                delegate: Item {
+                    width:
+                        manager.cardWidth
+
+                    height:
+                        manager.cardHeight
+
+                    property string wallpaperPath:
+                        filePath
+
+                    Rectangle {
+                        anchors.fill:
+                            parent
+
+                        radius:
+                            manager.cardRadius
+
+                        color:
+                            manager.selectedWallpaper === wallpaperPath
+                                ? manager.cardSelectedColor
+                                : manager.cardColor
+
+                        border.width:
+                            manager.selectedWallpaper === wallpaperPath
+                                ? 2
+                                : 1
+
+                        border.color:
+                            manager.selectedWallpaper === wallpaperPath
+                                ? manager.borderSelectedColor
+                                : manager.borderColor
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration:
+                                    120
+                            }
+                        }
+
+                        Column {
+                            anchors.fill:
+                                parent
+
+                            anchors.margins:
+                                7
+
+                            spacing:
+                                6
+
+                            Rectangle {
+                                width:
+                                    parent.width
+
+                                height:
+                                    manager.thumbnailHeight
+
+                                radius:
+                                    manager.cardRadius - 3
+
+                                color:
+                                    "#151519"
+
+                                clip:
+                                    true
+
+                                // ====================================================
+                                // IMAGEM ESTÁTICA
+                                // ====================================================
+
+                                Image {
+                                    id: staticPreview
+
+                                    anchors.fill:
+                                        parent
+
+                                    source:
+                                        manager.isStatic(
+                                            wallpaperPath
+                                        )
+                                            ? "file://" +
+                                              wallpaperPath
+                                            : ""
+
+                                    fillMode:
+                                        Image.PreserveAspectCrop
+
+                                    asynchronous:
+                                        true
+
+                                    cache:
+                                        true
+
+                                    smooth:
+                                        true
+
+                                    visible:
+                                        manager.isStatic(
+                                            wallpaperPath
+                                        )
+                                }
+
+                                // ====================================================
+                                // GIF
+                                // ====================================================
+
+                                Video {
+                                    id: gifPreview
+
+                                    anchors.fill:
+                                        parent
+
+                                    source:
+                                        manager.isGif(
+                                            wallpaperPath
+                                        )
+                                            ? "file://" +
+                                              wallpaperPath
+                                            : ""
+
+                                    fillMode:
+                                        VideoOutput.PreserveAspectCrop
+
+                                    muted:
+                                        true
+
+                                    autoPlay:
+                                        manager.isGif(
+                                            wallpaperPath
+                                        )
+
+                                    loops:
+                                        1
+
+                                    visible:
+                                        manager.isGif(
+                                            wallpaperPath
+                                        )
+
+                                    onPlaybackStateChanged: {
+                                        if (
+                                            playbackState ===
+                                            MediaPlayer.PlayingState
+                                        ) {
+                                            gifPreviewTimer.restart()
+                                        }
+                                    }
+                                }
+
+                                Timer {
+                                    id: gifPreviewTimer
+
+                                    interval:
+                                        450
+
+                                    repeat:
+                                        false
+
+                                    onTriggered: {
+                                        if (
+                                            gifPreview.playbackState ===
+                                            MediaPlayer.PlayingState
+                                        ) {
+                                            gifPreview.pause()
+                                        }
+                                    }
+                                }
+
+                                // ====================================================
+                                // VÍDEO
+                                // ====================================================
+
+                                Image {
+                                    id: videoPreview
+
+                                    anchors.fill:
+                                        parent
+
+                                    source:
+                                        manager.isVideo(
+                                            wallpaperPath
+                                        )
+                                            ? "file://" +
+                                              manager.videoThumbnailPath(
+                                                  wallpaperPath
+                                              )
+                                            : ""
+
+                                    fillMode:
+                                        Image.PreserveAspectCrop
+
+                                    asynchronous:
+                                        true
+
+                                    cache:
+                                        false
+
+                                    smooth:
+                                        true
+
+                                    visible:
+                                        manager.isVideo(
+                                            wallpaperPath
+                                        )
+
+                                    onStatusChanged: {
+                                        if (
+                                            status ===
+                                            Image.Error
+                                        ) {
+                                            manager.queueVideoThumbnail(
+                                                wallpaperPath
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // ====================================================
+                                // ESCURECIMENTO
+                                // ====================================================
+
+                                Rectangle {
+                                    anchors.fill:
+                                        parent
+
+                                    color:
+                                        "#35101014"
+
+                                    visible:
+                                        manager.isAnimated(
+                                            wallpaperPath
+                                        )
+                                }
+
+                                // ====================================================
+                                // BOTÃO PLAY
+                                // ====================================================
+
+                                Rectangle {
+                                    anchors.centerIn:
+                                        parent
+
+                                    width:
+                                        38
+
+                                    height:
+                                        38
+
+                                    radius:
+                                        19
+
+                                    color:
+                                        "#c915151b"
+
+                                    border.width:
+                                        1
+
+                                    border.color:
+                                        "#5a5962"
+
+                                    visible:
+                                        manager.isAnimated(
+                                            wallpaperPath
+                                        )
+
+                                    Text {
+                                        anchors.centerIn:
+                                            parent
+
+                                        text:
+                                            "▶"
+
+                                        color:
+                                            manager.primaryTextColor
+
+                                        font.pixelSize:
+                                            16
+
+                                        font.bold:
+                                            true
+
+                                        leftPadding:
+                                            2
+                                    }
+                                }
+
+                                // ====================================================
+                                // TIPO
+                                // ====================================================
+
+                                Text {
+                                    anchors.left:
+                                        parent.left
+
+                                    anchors.bottom:
+                                        parent.bottom
+
+                                    anchors.leftMargin:
+                                        7
+
+                                    anchors.bottomMargin:
+                                        5
+
+                                    text:
+                                        manager.isAnimated(
+                                            wallpaperPath
+                                        )
+                                            ? "ANIMADO"
+                                            : "IMAGEM"
+
+                                    color:
+                                        manager.primaryTextColor
+
+                                    font.family:
+                                        "JetBrains Mono"
+
+                                    font.pixelSize:
+                                        8
+
+                                    font.bold:
+                                        true
+                                }
+                            }
+
+                            Text {
+                                width:
+                                    parent.width
+
+                                text:
+                                    fileName
+
+                                color:
+                                    manager.primaryTextColor
+
+                                font.family:
+                                    "JetBrains Mono"
+
+                                font.pixelSize:
+                                    10
+
+                                elide:
+                                    Text.ElideMiddle
+
+                                horizontalAlignment:
+                                    Text.AlignHCenter
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill:
+                                parent
+
+                            hoverEnabled:
+                                true
+
+                            onEntered: {
+                                if (
+                                    manager.selectedWallpaper !==
+                                    wallpaperPath
+                                ) {
+                                    parent.color =
+                                        manager.cardHoverColor
+                                }
+                            }
+
+                            onExited: {
+                                parent.color =
+                                    manager.selectedWallpaper ===
+                                    wallpaperPath
+                                        ? manager.cardSelectedColor
+                                        : manager.cardColor
+                            }
+
+                            onClicked: {
+                                manager.applyWallpaper(
+                                    wallpaperPath
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                anchors.centerIn:
+                    parent
+
+                text:
+                    "Nenhum wallpaper encontrado"
+
+                color:
+                    manager.mutedTextColor
+
+                font.family:
+                    "JetBrains Mono"
+
+                font.pixelSize:
+                    13
+
+                visible:
+                    wallpaperModel.count === 0
+            }
+        }
+
+        // ========================================================
+        // RODAPÉ
+        // ========================================================
+
+        Rectangle {
+            id: footer
+
+            anchors {
+                left: parent.left
+                right: parent.right
+                bottom: parent.bottom
+            }
+
+            height:
+                manager.footerHeight
+
+            color:
+                "transparent"
+
+            RowLayout {
+                anchors.fill:
+                    parent
+
+                anchors.leftMargin:
+                    manager.outerMargin
+
+                anchors.rightMargin:
+                    manager.outerMargin
+
+                Text {
+                    Layout.fillWidth:
+                        true
+
+                    text:
+                        manager.selectedWallpaper === ""
+                            ? "Selecione um wallpaper"
+                            : manager.selectedWallpaper
+
+                    color:
+                        manager.secondaryTextColor
+
+                    font.family:
+                        "JetBrains Mono"
+
+                    font.pixelSize:
+                        10
+
+                    elide:
+                        Text.ElideMiddle
+                }
+
+                Button {
+                    text:
+                        "Fechar"
+
+                    implicitWidth:
+                        90
+
+                    implicitHeight:
+                        36
+
+                    onClicked:
+                        manager.closeManager()
+
+                    background:
+                        Rectangle {
+                            radius:
+                                10
+
+                            color:
+                                manager.cardColor
+
+                            border.width:
+                                1
+
+                            border.color:
+                                manager.borderColor
+                        }
+
+                    contentItem:
+                        Text {
+                            text:
+                                parent.text
+
+                            color:
+                                manager.primaryTextColor
+
+                            font.family:
+                                "JetBrains Mono"
+
+                            font.pixelSize:
+                                11
+
+                            horizontalAlignment:
+                                Text.AlignHCenter
+
+                            verticalAlignment:
+                                Text.AlignVCenter
+                        }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,74 @@
+import Quickshell
+import QtQuick
+import "components"
+
+PanelWindow {
+    id: bar
+
+    anchors {
+        top: true
+        left: true
+        right: true
+    }
+
+    implicitHeight: 48
+
+    color: "transparent"
+
+    // =========================
+    // BLOCO ESQUERDO
+    // =========================
+
+    Row {
+        id: leftSection
+
+        anchors {
+            left: parent.left
+            verticalCenter: parent.verticalCenter
+        }
+
+        spacing: 8
+
+        ArchLauncher {}
+
+        Weather {}
+
+        Clock {}
+    }
+
+    // =========================
+    // BLOCO CENTRAL
+    // =========================
+
+    Row {
+        id: centerSection
+
+        anchors {
+            horizontalCenter: parent.horizontalCenter
+            verticalCenter: parent.verticalCenter
+        }
+
+        spacing: 8
+
+        Workspaces {}
+
+        ActiveApps {}
+    }
+
+    // =========================
+    // BLOCO DIREITO
+    // =========================
+
+    Row {
+        id: rightSection
+
+        anchors {
+            right: parent.right
+            verticalCenter: parent.verticalCenter
+        }
+
+        spacing: 8
+
+        SystemControls {}
+    }
+}

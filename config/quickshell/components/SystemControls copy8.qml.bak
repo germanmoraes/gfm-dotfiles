@@ -1,0 +1,401 @@
+import Quickshell
+import Quickshell.Networking
+import Quickshell.Bluetooth
+import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
+import QtQuick
+
+Item {
+    id: root
+
+    // Mantido para compatibilidade com o Bar.qml atual.
+    signal settingsRequested()
+
+    // ============================================================
+    // FONTE
+    // ============================================================
+
+    readonly property string iconFontFamily: "Material Symbols Rounded"
+    readonly property int iconFontSize: 18
+
+    // ============================================================
+    // CORES
+    // ============================================================
+
+    readonly property color capsuleColor: "#e6151518"
+    readonly property color borderColor: "#29252f"
+    readonly property color activeColor: "#4da6ff"
+    readonly property color inactiveColor: "#8b8b92"
+    readonly property color disabledColor: "#66666d"
+    readonly property color ethernetColor: "#00ffff"
+    readonly property color wifiColor: "#00ffff"
+    readonly property color brightnessColor: "#ffff00"
+    readonly property color batteryColor: "#39ff14"
+    readonly property color audioColor: "#ff3bc2"
+
+    // ============================================================
+    // ICONES
+    // ============================================================
+
+    readonly property string volumeIconHigh: String.fromCodePoint(0xE050)
+    readonly property string volumeIconMedium: String.fromCodePoint(0xE04D)
+    readonly property string volumeIconZero: String.fromCodePoint(0xE04C)
+    readonly property string volumeIconMuted: String.fromCodePoint(0xE04F)
+    readonly property string volumeIconDisabled: String.fromCodePoint(0xE04F)
+
+    // ============================================================
+    // REDE
+    // ============================================================
+
+    property var wifiDevice: {
+        const devices = Networking.devices ? Networking.devices.values : []
+        return devices.find(d => d.type === DeviceType.Wifi) || null
+    }
+
+    property var wiredDevice: {
+        const devices = Networking.devices ? Networking.devices.values : []
+        return devices.find(d => d.type !== DeviceType.Wifi) || null
+    }
+
+    property var connectedWifi: {
+        if (!root.wifiDevice)
+            return null
+
+        const networks = root.wifiDevice.networks
+            ? root.wifiDevice.networks.values
+            : []
+
+        return networks.find(n => n.connected) || null
+    }
+
+    readonly property bool wifiEnabled: Networking.wifiEnabled
+
+    readonly property bool wifiConnected:
+        root.wifiDevice !== null &&
+        root.wifiDevice.connected
+
+    readonly property bool ethernetConnected:
+        root.wiredDevice !== null &&
+        root.wiredDevice.connected
+
+    readonly property real wifiSignal:
+        root.connectedWifi
+            ? root.connectedWifi.signalStrength
+            : 0
+
+    readonly property string wifiIcon: {
+        if (!root.wifiEnabled)
+            return ""
+
+        if (!root.wifiConnected)
+            return "wifi"
+
+        if (root.wifiSignal < 0.34)
+            return "wifi_1_bar"
+
+        if (root.wifiSignal < 0.67)
+            return "wifi_2_bar"
+
+        return "wifi"
+    }
+
+    // ============================================================
+    // BLUETOOTH
+    // ============================================================
+
+    readonly property var bluetoothAdapter:
+        Bluetooth.defaultAdapter
+
+    readonly property bool bluetoothEnabled:
+        root.bluetoothAdapter !== null &&
+        root.bluetoothAdapter.enabled
+
+    readonly property bool bluetoothConnected: {
+        if (!root.bluetoothAdapter)
+            return false
+
+        const devices = root.bluetoothAdapter.devices
+            ? root.bluetoothAdapter.devices.values
+            : []
+
+        return devices.some(d => d.connected)
+    }
+
+    // ============================================================
+    // ÁUDIO / PIPEWIRE
+    // ============================================================
+
+    readonly property var audioSink:
+        Pipewire.defaultAudioSink
+
+    PwObjectTracker {
+        objects: root.audioSink ? [root.audioSink] : []
+    }
+
+    readonly property bool audioReady:
+        root.audioSink !== null &&
+        root.audioSink.audio !== null
+
+    readonly property bool audioMuted:
+        root.audioReady &&
+        root.audioSink.audio.muted
+
+    readonly property real audioVolume:
+        root.audioReady
+            ? root.audioSink.audio.volume
+            : 0
+
+    readonly property string volumeIcon: {
+        if (!root.audioReady || root.audioMuted)
+            return "volume_off"
+
+        if (root.audioVolume < 0.34)
+            return "volume_down"
+
+        return "volume_up"
+    }
+
+    // ============================================================
+    // BATERIA
+    // ============================================================
+
+    readonly property var battery:
+        UPower.displayDevice
+
+    readonly property bool batteryReady:
+        root.battery !== null &&
+        root.battery.ready
+
+    readonly property real batteryPercentage:
+        root.batteryReady
+            ? root.battery.percentage
+            : 0
+
+    readonly property bool batteryCharging:
+        root.batteryReady &&
+        (
+            root.battery.state === UPowerDeviceState.Charging ||
+            root.battery.state === UPowerDeviceState.PendingCharge
+        )
+
+    readonly property string batteryIcon: {
+        if (!root.batteryReady)
+            return "battery_unknown"
+
+        if (root.batteryCharging)
+            return "battery_charging_full"
+
+        if (root.batteryPercentage <= 0.10)
+            return "battery_1_bar"
+
+        if (root.batteryPercentage <= 0.20)
+            return "battery_2_bar"
+
+        if (root.batteryPercentage <= 0.30)
+            return "battery_3_bar"
+
+        if (root.batteryPercentage <= 0.50)
+            return "battery_4_bar"
+
+        if (root.batteryPercentage <= 0.70)
+            return "battery_5_bar"
+
+        if (root.batteryPercentage <= 0.85)
+            return "battery_6_bar"
+
+        return "battery_full"
+    }
+
+    // ============================================================
+    // BRILHO
+    // ============================================================
+    //
+    // O Quickshell 0.3.1 não possui um serviço nativo de
+    // backlight equivalente ao Networking/Pipewire/UPower.
+    //
+    // Portanto, nesta primeira versão usamos o ícone Material
+    // Symbols. A lógica de brilho será adicionada separadamente.
+    //
+
+    readonly property string brightnessIcon:
+        "brightness_medium"
+
+    // ============================================================
+    // ÍCONE MATERIAL SYMBOLS
+    // ============================================================
+
+    component MaterialIcon: Text {
+        property string icon: ""
+        property color iconColor: root.inactiveColor
+        property int iconSize: root.iconFontSize
+
+        text: icon
+        font.family: root.iconFontFamily
+        font.pixelSize: iconSize
+        font.weight: Font.Medium
+        color: iconColor
+
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+
+        renderType: Text.NativeRendering
+    }
+
+
+
+
+
+
+
+    // ============================================================
+    // CÁPSULA
+    // ============================================================
+
+    implicitWidth: controlsRow.implicitWidth + 20
+    implicitHeight: 36
+
+    Rectangle {
+        anchors.fill: parent
+
+        radius: height / 2
+
+        color: root.capsuleColor
+
+        border.width: 1
+        border.color: root.borderColor
+
+        MouseArea {
+            anchors.fill: parent
+//            cursorShape: Qt.PointingHandCursor
+
+            onClicked: {
+                root.settingsRequested()
+            }
+        }
+    }
+
+    Row {
+        id: controlsRow
+
+        anchors.centerIn: parent
+
+        spacing: 10
+
+        // ========================================================
+        // WI-FI
+        // ========================================================
+
+        Item {
+            visible: root.wifiEnabled
+
+            width: 20
+            height: 24
+
+            MaterialIcon {
+                anchors.centerIn: parent
+
+                icon: root.wifiIcon
+
+                iconColor:
+                    root.wifiConnected
+                        ? root.wifiColor
+                        : root.inactiveColor
+            }
+
+            MaterialIcon {
+                visible:
+                    root.wifiEnabled &&
+                    !root.wifiConnected
+
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+
+                icon: "close"
+
+                iconSize: 9
+                iconColor: root.inactiveColor
+            }
+        }
+
+        // ========================================================
+        // ETHERNET
+        // ========================================================
+
+        MaterialIcon {
+            visible:
+                !root.wifiEnabled ||
+                !root.wifiConnected
+
+            icon: "settings_ethernet"
+
+            iconColor:
+                root.ethernetConnected
+                    ? root.ethernetColor
+                    : root.inactiveColor
+        }
+
+        // ========================================================
+        // BLUETOOTH
+        // ========================================================
+
+        MaterialIcon {
+            icon: "bluetooth"
+
+            iconColor:
+                root.bluetoothEnabled
+                    ? root.activeColor
+                    : root.inactiveColor
+        }
+
+        // ========================================================
+        // BRILHO
+        // ========================================================
+
+//        MaterialIcon {
+//            icon: root.brightnessIcon
+//            iconColor: root.inactiveColor
+//        }
+
+        MaterialIcon {
+            icon: root.brightnessIcon
+            iconColor: root.brightnessColor
+        }
+
+
+        // ========================================================
+        // BATERIA
+        // ========================================================
+
+    MaterialIcon {
+        icon: root.batteryIcon
+
+        iconColor:
+            root.batteryReady
+                ? root.batteryColor
+                : root.inactiveColor
+    }
+
+        // ========================================================
+        // VOLUME
+        // ========================================================
+
+        MaterialIcon {
+            icon: root.volumeIcon
+
+            iconColor:
+                root.audioMuted
+                    ? root.inactiveColor
+                    : root.audioColor
+        }
+
+        // ========================================================
+        // POWER
+        // ========================================================
+
+        MaterialIcon {
+            icon: "power_settings_new"
+
+            iconColor: root.inactiveColor
+        }
+    }
+}
