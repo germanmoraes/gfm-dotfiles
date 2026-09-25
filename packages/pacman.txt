@@ -1,6 +1,7 @@
 gdm
 hyprland
 quickshell
+qt6-multimedia
 polkit
 xdg-desktop-portal
 xdg-desktop-portal-hyprland
@@ -21,3 +22,4 @@ kitty
 adwaita-fonts
 ttf-jetbrains-mono-nerd
 ttf-nerd-fonts-symbols
+ttf-material-symbols-variable
